@@ -1,0 +1,1099 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Sales Review Builder</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+/* Layout: a working bench (upload + settings) above a stack of A4 report pages that stay light ("paper") in both themes. */
+:root{
+  --bg:#eef2f4; --panel:#ffffff; --ink:#122430; --ink-2:#4a5d68; --muted:#7a8b94; --line:#d6dfe3;
+  --accent:#0b6b74; --accent-ink:#ffffff; --accent-soft:#dcefee;
+  --warn-bg:#fff5df; --warn-ink:#6b4a00; --ok-bg:#e3f4e3; --ok-ink:#145214; --bad-bg:#fde8e8; --bad-ink:#8a1f1f;
+  --f-display:"Bricolage Grotesque","Hanken Grotesk",system-ui,sans-serif;
+  --f-body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f181d; --panel:#16232a; --ink:#e6eef1; --ink-2:#a9bac2; --muted:#7f929b; --line:#2a3a42;
+  --accent:#3fb3bb; --accent-ink:#06191b; --accent-soft:#183a3d;
+  --warn-bg:#3a2e10; --warn-ink:#f5d58a; --ok-bg:#163217; --ok-ink:#a6e3a6; --bad-bg:#3c1a1a; --bad-ink:#f4b0b0; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f181d; --panel:#16232a; --ink:#e6eef1; --ink-2:#a9bac2; --muted:#7f929b; --line:#2a3a42;
+  --accent:#3fb3bb; --accent-ink:#06191b; --accent-soft:#183a3d;
+  --warn-bg:#3a2e10; --warn-ink:#f5d58a; --ok-bg:#163217; --ok-ink:#a6e3a6; --bad-bg:#3c1a1a; --bad-ink:#f4b0b0; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+header.app h1{font-family:var(--f-display);font-weight:700;font-size:clamp(24px,3.4vw,34px);letter-spacing:-.02em;margin:0;text-wrap:balance}
+header.app p{margin:4px 0 0;color:var(--ink-2);max-width:70ch}
+.bench{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:16px}
+@media (max-width:900px){.bench{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;min-width:0}
+.card h2{font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);margin:0 0 12px;font-weight:600}
+.drop{border:2px dashed var(--line);border-radius:8px;padding:20px;display:grid;gap:10px;justify-items:start;transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop strong{font-size:17px}
+.drop small{color:var(--ink-2)}
+.btn{font:inherit;font-weight:600;border-radius:7px;padding:9px 14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:640px){.fields{grid-template-columns:minmax(0,1fr)}}
+label.f{display:grid;gap:4px;font-size:13px;color:var(--ink-2);font-weight:500;align-content:start}
+label.f input,label.f textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%}
+label.f textarea{min-height:64px;resize:vertical}
+label.f.wide{grid-column:1/-1}
+label.chk{display:flex;gap:8px;align-items:flex-start;font-size:14px;grid-column:1/-1}
+label.chk input{margin-top:4px}
+.fmt{font-size:13px;color:var(--ink-2);margin:0;padding-left:18px;display:grid;gap:3px}
+.fmt code{font-family:var(--f-mono);font-size:12px;background:var(--bg);padding:1px 5px;border-radius:4px}
+.exl{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 16px;max-height:220px;overflow:auto;padding:4px 2px}
+.exl label{display:flex;gap:8px;font-size:13.5px;align-items:flex-start}
+.exl label input{margin-top:3px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line)}
+@media (max-width:700px){.bar{position:static}}
+.bar .src{display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0}
+.bar .src b{overflow-wrap:anywhere}
+.bar .acts{display:flex;gap:8px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok-ink)} .pill.warn{background:var(--warn-bg);color:var(--warn-ink)} .pill.bad{background:var(--bad-bg);color:var(--bad-ink)} .pill.ex{background:var(--accent-soft);color:var(--accent)}
+.msg{font-size:14px;padding:10px 14px;border-radius:8px}
+.msg.warn{background:var(--warn-bg);color:var(--warn-ink)} .msg.bad{background:var(--bad-bg);color:var(--bad-ink)} .msg.ok{background:var(--ok-bg);color:var(--ok-ink)}
+#status:empty{display:none}
+
+/* ---------------- Report pages (always light paper) ---------------- */
+.report{display:grid;gap:22px;justify-items:center}
+.page{
+  --p:#ffffff; --pi:#14202b; --pi2:#4f5d6b; --pm:#7d8996; --pl:#e2e7ee; --pt:#f5f7fa; --navy:#0f1622; --blue:#2463c7;
+  --g:#138a36; --g-bg:#e6f5ea; --r:#c0392b; --r-bg:#fdeaea; --a:#a86400; --a-bg:#fff3dc; --b:#2463c7; --b-bg:#e8f0fc; --v:#5b46c2; --v-bg:#efecfb; --t:#0b7a72; --t-bg:#e3f5f2;
+  color-scheme:light;width:100%;max-width:900px;min-width:0;background:var(--p);color:var(--pi);border-radius:4px;
+  box-shadow:0 1px 2px rgba(0,0,0,.06),0 10px 30px rgba(16,30,39,.10);padding:clamp(18px,3.4vw,36px);display:flex;flex-direction:column;gap:14px;font-size:13.5px;line-height:1.5;overflow:hidden
+}
+.exporting .page{width:820px;max-width:none;min-height:1160px;border-radius:0;box-shadow:none;padding:30px 32px}
+.page .pf{margin-top:auto;display:flex;justify-content:space-between;gap:10px;font-size:11px;color:var(--pm);padding-top:8px;flex-wrap:wrap}
+.cover{margin:calc(-1*clamp(18px,3.4vw,36px)) calc(-1*clamp(18px,3.4vw,36px)) 4px;padding:clamp(18px,3.4vw,32px) clamp(18px,3.4vw,36px) 22px;background:var(--navy);color:#fff;border-bottom:4px solid var(--blue);display:grid;gap:6px}
+.exporting .cover{margin:-30px -32px 4px;padding:28px 32px 22px}
+.cover .k{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7fb2ff}
+.cover h1{font-family:var(--f-display);font-size:clamp(24px,3.4vw,32px);margin:0;letter-spacing:-.015em;line-height:1.15;text-wrap:balance}
+.cover .s{color:#b9c4d4;font-size:13px}
+.cover .meta{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:12.5px;color:#b9c4d4;margin-top:6px}
+.cover .meta b{color:#fff}
+.sec{display:flex;align-items:center;gap:10px;margin:4px 0 0}
+.sec::before{content:"";width:4px;align-self:stretch;background:var(--blue);border-radius:2px}
+.sec h2{font-size:18px;margin:0;font-weight:700;letter-spacing:-.005em}
+.sec h2 span{color:var(--blue);margin-right:6px}
+.sub{color:var(--pm);font-size:12px;margin:-8px 0 0}
+.rc{border:1px solid var(--pl);border-radius:10px;padding:14px 16px;display:grid;gap:8px;min-width:0;align-content:start}
+.rc h4{margin:0;font-size:14px;font-weight:700}
+.rc .hint{font-size:11.5px;color:var(--pm)}
+.rc .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:700px){.page .g2,.page .g3{grid-template-columns:minmax(0,1fr)} .page .g4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.exporting .page .g2{grid-template-columns:repeat(2,minmax(0,1fr))} .exporting .page .g3{grid-template-columns:repeat(3,minmax(0,1fr))} .exporting .page .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.tile{border-radius:10px;padding:12px 14px;display:grid;gap:4px;align-content:start;border:1px solid transparent}
+.tile .tk{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.tile .tv{font-family:var(--f-display);font-size:24px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums;line-height:1.1}
+.tile .tv small{font-family:var(--f-body);font-size:13px;color:var(--pm);font-weight:600;margin-left:4px}
+.tile .tn{font-size:11.5px;color:var(--pi2)}
+.tb{background:var(--b-bg);border-color:#d3e1f8}.tb .tk{color:var(--b)}
+.tg{background:var(--g-bg);border-color:#cdebd6}.tg .tk{color:var(--g)}
+.ta{background:var(--a-bg);border-color:#f6e2b8}.ta .tk{color:var(--a)}
+.tr{background:var(--r-bg);border-color:#f6cfcf}.tr .tk{color:var(--r)}
+.tv2{background:var(--v-bg);border-color:#ddd7f6}.tv2 .tk{color:var(--v)}
+.tt{background:var(--t-bg);border-color:#c8ebe5}.tt .tk{color:var(--t)}
+.es{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 20px}
+@media (max-width:700px){.page .es{grid-template-columns:minmax(0,1fr)}}
+.exporting .page .es{grid-template-columns:repeat(3,minmax(0,1fr))}
+.es div{display:flex;gap:8px;align-items:baseline}
+.es b{font-family:var(--f-display);font-size:19px;color:var(--blue);white-space:nowrap;font-variant-numeric:tabular-nums}
+.es span{font-size:12.5px;color:var(--pi2)}
+.note{border-radius:10px;padding:12px 14px;display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;font-size:12.5px;border:1px solid}
+@media (max-width:600px){.page .note{grid-template-columns:minmax(0,1fr);gap:4px}}
+.exporting .page .note{grid-template-columns:150px minmax(0,1fr)}
+.note>b{font-size:12.5px}
+.note.r{background:var(--r-bg);border-color:#f2c4c4}.note.r>b{color:var(--r)}
+.note.a{background:var(--a-bg);border-color:#efd59f}.note.a>b{color:var(--a)}
+.note.b{background:var(--b-bg);border-color:#c9daf6}.note.b>b{color:var(--b)}
+.note.v{background:var(--v-bg);border-color:#d6cff4}.note.v>b{color:var(--v)}
+.prose{margin:0;font-size:13px;color:var(--pi2)}
+.prose b{color:var(--pi)}
+table.t{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}
+table.t th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--pm);font-weight:700;border-bottom:1px solid var(--pl);padding:6px 6px;white-space:nowrap}
+table.t td{border-bottom:1px solid var(--pl);padding:5px 6px;vertical-align:top}
+table.t td.n,table.t th.n{text-align:right;white-space:nowrap}
+table.t td.c,table.t th.c{text-align:center}
+table.t tr.grp td{background:var(--pt);font-weight:700}
+table.t tr.tot td{font-weight:700;border-top:1.5px solid var(--pi)}
+table.t.dk th{background:var(--navy);color:#fff;border:0;padding:8px 6px}
+table.t.dk td{color:var(--pm);font-style:italic;height:30px}
+.tw{overflow-x:auto;min-width:0}
+.neg{color:var(--r)}
+.st{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.st.g{background:var(--g-bg);color:var(--g)} .st.r{background:var(--r-bg);color:var(--r)} .st.a{background:var(--a-bg);color:var(--a)} .st.b{background:var(--b-bg);color:var(--b)} .st.n{background:#eef1f4;color:#5b6775} .st.v{background:var(--v-bg);color:var(--v)}
+.ck{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.ck li{display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px;font-size:12.5px;color:var(--pi2)}
+.ck li b{color:var(--pi)}
+.ck li::before{content:"✓";width:16px;height:16px;border-radius:50%;background:var(--g);color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;margin-top:1px}
+.ck.x li::before{content:"✕";background:var(--r)}
+.ck.i li::before{content:"!";background:var(--a)}
+.tier{border:1.5px solid;border-radius:10px;padding:12px 14px;display:grid;gap:6px}
+.tier .th{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tier .tl{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#fff;padding:3px 10px;border-radius:999px}
+.tier .tt2{font-weight:700;font-size:14px}
+.tier p{margin:0;font-size:12.5px;color:var(--pi2)} .tier p b{color:var(--pi)}
+.t1{border-color:#8fd0a2}.t1 .tl{background:var(--g)} .t2{border-color:#eba3a3}.t2 .tl{background:var(--r)} .t3{border-color:#9fbdf0}.t3 .tl{background:var(--b)} .t4{border-color:var(--pl)}.t4 .tl{background:#6b7785}
+.hb .l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hb .tr2{height:12px;background:var(--pt);border-radius:6px;overflow:hidden}
+.hb .tr2 i{display:block;height:100%;border-radius:6px;background:var(--blue)}
+.hb .v{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.vb{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:18px;align-items:end;height:190px;position:relative;padding-top:22px}
+.vb .col{display:grid;justify-items:center;align-content:end;height:100%;gap:4px;position:relative;z-index:1}
+.vb .bar2{width:62%;max-width:120px;border-radius:4px 4px 0 0;background:var(--blue)}
+.vb .val{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.vb .tline{position:absolute;left:0;right:0;border-top:2px dashed var(--r);z-index:0}
+.vb .tline span{position:absolute;right:0;top:-18px;font-size:10.5px;color:var(--r);font-weight:700}
+.vbl{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:18px;text-align:center;font-size:11.5px}
+.vbl b{display:block;font-size:12px}
+.vbl span{color:var(--pm)}
+.split{display:flex;height:22px;border-radius:6px;overflow:hidden;font-size:11px;font-weight:700;color:#fff}
+.split div{display:grid;place-items:center;min-width:0;white-space:nowrap;overflow:hidden}
+.pri{list-style:none;margin:0;padding:0;display:grid}
+.pri li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid var(--pl);font-size:12.5px;color:var(--pi2);align-items:start}
+.pri li:last-child{border-bottom:0}
+.pri li i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:11px}
+.pri li b{color:var(--pi)}
+
+/* v3 charts */
+.hbs{display:grid;gap:6px}
+.hb{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1.6fr) auto;gap:10px;align-items:center;font-size:12px}
+.hb .l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hb .tr2{height:14px;background:var(--pt);border-radius:7px;overflow:hidden}
+.hb .tr2 i{display:block;height:100%;border-radius:7px}
+.hb .v{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:64px}
+.donut{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.donut svg{flex:none}
+.lg{list-style:none;margin:0;padding:0;display:grid;gap:5px;flex:1;min-width:150px;font-size:12px}
+.lg li{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:8px;align-items:center}
+.lg i{width:12px;height:12px;border-radius:3px}
+.lg b{font-variant-numeric:tabular-nums}
+.hero{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:700px){.page .hero{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.exporting .page .hero{grid-template-columns:repeat(4,minmax(0,1fr))}
+.big{background:var(--pt);border-radius:12px;padding:14px;display:grid;gap:2px;align-content:center;justify-items:start}
+.big span{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--pm)}
+.big b{font-family:var(--f-display);font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
+.big small{font-size:12px;color:var(--pi2)}
+.big.gaugebox{justify-items:center;padding:8px}
+.so{font-size:13px;color:var(--pi);border-radius:8px;padding:9px 12px;background:var(--b-bg);border-left:4px solid var(--b)}
+.so.g{background:var(--g-bg);border-left-color:var(--g)} .so.a{background:var(--a-bg);border-left-color:#e09a1a} .so.r{background:var(--r-bg);border-left-color:var(--r)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.dot.g{background:#138a36}.dot.a{background:#e09a1a}.dot.r{background:#d0402f}.dot.y{background:#f0b44c}
+.lights{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.lights li{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:10px;align-items:center;font-size:12.5px;color:var(--pi2);padding:6px 10px;border-radius:8px;background:var(--pt)}
+.lights li b{color:var(--pi)}
+.lights li i{width:14px;height:14px;border-radius:50%}
+.lights li>span{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.lights li.g i{background:#138a36}.lights li.g>span{background:var(--g-bg);color:var(--g)}
+.lights li.a i{background:#e09a1a}.lights li.a>span{background:var(--a-bg);color:var(--a)}
+.lights li.r i{background:#d0402f}.lights li.r>span{background:var(--r-bg);color:var(--r)}
+.lights li.n i{background:#9aa5b1}.lights li.n>span{background:#eef1f4;color:#5b6775}
+.key{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:11.5px;color:var(--pi2);border-top:1px solid var(--pl);padding-top:8px}
+.vb .arrow{font-size:10.5px;font-weight:800}
+.vb .arrow.up{color:#138a36}.vb .arrow.dn{color:#d0402f}
+.prog{height:8px;background:#e8edf2;border-radius:4px;position:relative;overflow:visible}
+.prog i{display:block;height:100%;border-radius:4px}
+.prog.big2{height:22px;border-radius:11px;margin:26px 0 4px}
+.prog.big2 i{border-radius:11px}
+.prog .mk{position:absolute;top:-6px;bottom:-6px;width:3px;background:var(--pi);border-radius:2px}
+.prog .mk span{position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);font-size:10.5px;white-space:nowrap;color:var(--pi);font-weight:700}
+.tile.tn{background:var(--pt);border-color:var(--pl)}.tile.tn .tk{color:var(--pi2)}
+.tile .prog{margin-top:4px}
+.sc{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:14px;align-items:end}
+.scol{display:grid;justify-items:center;gap:4px;font-size:11.5px}
+.scol b{font-size:12px}
+.sstack{width:58%;max-width:70px;display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden;min-height:2px}
+.sstack i{display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:700;font-style:normal;min-height:14px}
+.legend2{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11.5px;color:var(--pi2)}
+.legend2 i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+table.hm td{padding:3px 6px;font-size:11.5px;white-space:nowrap}
+table.hm td.hc{text-align:center;border:2px solid #fff;font-variant-numeric:tabular-nums;font-weight:600}
+table.hm td.hc.z{color:#b8c2cc}
+.tier .cnt{margin-left:auto;font-family:var(--f-display);font-size:22px}
+.pr{display:grid;grid-template-columns:72px minmax(0,1fr);gap:10px;align-items:center;padding:4px 0;border-bottom:1px solid var(--pl)}
+.pr:last-child{border-bottom:0}
+.pr span{display:grid;font-size:12.5px} .pr small{color:var(--pm);font-size:11px}
+.pr span.spk,.spk{display:flex;gap:3px;align-items:flex-end;height:30px}
+.spk i{flex:1;border-radius:2px 2px 0 0}
+.rg{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.6fr) auto;gap:10px;align-items:center;font-size:12px;padding:3px 0}
+.rg .l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rtrack{position:relative;height:14px;background:var(--pt);border-radius:7px}
+.rtrack i{position:absolute;top:4px;height:6px;background:#f2c26b;border-radius:3px}
+.rtrack b{position:absolute;top:1px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#e09a1a;border:2px solid #fff}
+.rtrack b:first-of-type{background:#2463c7}
+.rg .v{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sugs{display:grid;gap:12px}
+.sug{border:1px solid var(--pl);border-left:6px solid;border-radius:10px;padding:12px 16px;display:grid;gap:6px}
+.sug.now{border-left-color:#d0402f}.sug.month{border-left-color:#e09a1a}
+.sug .sh{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:center}
+.sug .num{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800}
+.sug.now .num{background:#d0402f}.sug.month .num{background:#e09a1a}
+.sug .when{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--pm)}
+.sug h5{margin:0;font-size:15px;line-height:1.25}
+.sug .gain{text-align:right;font-family:var(--f-display);font-size:18px;font-weight:700;color:var(--g);white-space:nowrap}
+.sug .gain small{display:block;font-family:var(--f-body);font-size:10px;color:var(--pm);font-weight:600}
+.sug p{margin:0;font-size:12.5px;color:var(--pi2)} .sug p b{color:var(--pi)}
+.sug ul{margin:0;padding-left:18px;font-size:12.5px;display:grid;gap:3px}
+b.gain{color:var(--g)}
+.weeks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:700px){.page .weeks{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.exporting .page .weeks{grid-template-columns:repeat(4,minmax(0,1fr))}
+.wk{display:grid;grid-template-rows:auto auto 84px auto 1fr;align-content:start;gap:3px;justify-items:center;text-align:center;background:var(--pt);border-radius:10px;padding:10px}
+.wk .wn{font-weight:800;font-size:12px}.wk .wd{font-size:11px;color:var(--pm)}
+.wbar{height:80px;width:36px;display:flex;align-items:flex-end;background:#e8edf2;border-radius:6px;overflow:hidden}
+.wbar i{display:block;width:100%;background:var(--b);border-radius:6px 6px 0 0}
+.wk b{font-family:var(--f-display);font-size:17px}
+.wk small{font-size:11px;color:var(--pi2)}
+.rc.pros{border-color:#bfe3c9;background:#f6fcf7}.rc.cons{border-color:#f2c4c4;background:#fffafa}.rc.keep{border-color:#bfe3c9;background:#f6fcf7}
+.hint{font-size:11.5px;color:var(--pm);margin:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="app">
+    <h1>Sales Review Builder</h1>
+    <p>Upload a monthly sales-by-customer Excel file and get an easy-to-read sales report with charts: sales against target, which customers and items are growing or slowing, and clear ideas to improve sales based on your own numbers. Download it as a PDF or Excel file. Your file stays in your browser and is not uploaded anywhere.</p>
+  </header>
+
+  <section class="bench" aria-label="Upload and settings">
+    <div class="card">
+      <h2>1 · Upload the Excel</h2>
+      <div class="drop" id="drop">
+        <strong>Drop the .xlsx file here</strong>
+        <small>Or choose it from your device. One sheet: customer rows followed by their product rows.</small>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <label class="btn primary" for="file">Choose Excel file</label>
+          <input id="file" type="file" accept=".xlsx,.xls,.csv" hidden>
+          <button class="btn" id="loadExample" type="button">Show example</button>
+        </div>
+      </div>
+      <details style="margin-top:12px">
+        <summary style="cursor:pointer;font-weight:600;font-size:14px">Expected file format</summary>
+        <ul class="fmt" style="margin-top:8px">
+          <li>Row 1: <code>Particular</code>, then one header per month (e.g. <code>August 2026</code>) and a final <code>Total</code>.</li>
+          <li>Row 2: <code>Amount</code> / <code>Quantity</code> under each month.</li>
+          <li>A customer name row with no numbers, followed by that customer's product rows.</li>
+          <li>Product rows start with an item code in brackets: <code>[EM-2313] Disposable Syringe 3ml - Euromed</code>.</li>
+          <li>Negative values are returns or credit notes. A customer containing “Cash” is walk-in sales.</li>
+        </ul>
+      </details>
+    </div>
+    <div class="card">
+      <h2>2 · Report details</h2>
+      <div class="fields">
+        <label class="f">Company<input id="company" type="text" value="AppleMed Trading LLC"></label>
+        <label class="f">Territory<input id="territory" type="text" value="Sharjah Territory"></label>
+        <label class="f">Sales executive<input id="exec" type="text" placeholder="Read from the file"></label>
+        <label class="f">Monthly target (AED)<input id="target" type="text" inputmode="decimal" value="25000"></label>
+        <label class="f">High-value account from (AED)<input id="hv" type="text" inputmode="decimal" value="1500"></label>
+        <label class="f">Report date<input id="rdate" type="date"></label>
+        <label class="f">Prepared for<input id="prepfor" type="text" value="Sales Manager / General Manager review"></label>
+        <label class="f wide">Report title<input id="rtitle" type="text" value="Management Sales Performance Report"></label>
+        <label class="chk"><input id="partial" type="checkbox" checked> <span>Last month in the file is partial (month to date). It is flagged and never compared with a full month.</span></label>
+        <label class="f wide">Note from the sales executive (optional, shown in the summary and conclusion)<textarea id="notes" placeholder="e.g. Took over the territory in August; two accounts were on credit hold in October."></textarea></label>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="exclCard" hidden aria-label="Exclude customers">
+    <h2>3 · Exclude customers (optional)</h2>
+    <p style="margin:0 0 10px;color:var(--ink-2);font-size:14px">Tick customers that were reassigned or should not count. They are removed from every figure and listed in a note on page 1.</p>
+    <label class="f" style="max-width:520px;margin-bottom:10px">Reason shown in the report<input id="exReason" type="text" value="Reassigned to another salesperson"></label>
+    <div class="exl" id="exList"></div>
+  </section>
+
+  <div id="status" role="status"></div>
+
+  <div class="bar" id="bar" hidden>
+    <div class="src"><span id="srcPill"></span><b id="srcName"></b><span id="checkPill"></span></div>
+    <div class="acts">
+      <button class="btn primary" id="dlPdf" type="button">Download PDF</button>
+      <button class="btn" id="dlXlsx" type="button">Download Excel</button>
+    </div>
+  </div>
+
+  <main class="report" id="report" aria-live="polite"></main>
+</div>
+
+<script>
+"use strict";
+/* ===================== helpers ===================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nf0 = new Intl.NumberFormat("en-US",{maximumFractionDigits:0});
+const nf2 = new Intl.NumberFormat("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const r2 = x => Math.round(x*100)/100;
+const n0 = x => (x<0?"−":"") + nf0.format(Math.abs(Math.round(x)));
+const n2 = x => (x<0?"−":"") + nf2.format(Math.abs(r2(x)));
+const aed = x => n0(x) + " AED";
+const aed2 = x => n2(x) + " AED";
+const pc = x => (x==null||!isFinite(x)) ? "–" : (x*100).toFixed(1) + "%";
+const pcs = x => (x==null||!isFinite(x)) ? "–" : (x>0?"+":"") + (x*100).toFixed(1) + "%";
+const pc0 = x => (x==null||!isFinite(x)) ? "–" : Math.round(x*100) + "%";
+const sum = a => a.reduce((s,x)=>s+x,0);
+const avg = a => a.length ? sum(a)/a.length : 0;
+const toNum = v => { if (v==null||v==="") return 0; if (typeof v==="number") return v; const n=parseFloat(String(v).replace(/[, ]/g,"").replace(/^\((.*)\)$/,"-$1")); return isFinite(n)?n:0; };
+const trunc = (s,n) => s.length>n ? s.slice(0,n-1)+"…" : s;
+const listJoin = a => a.length<=1 ? (a[0]||"") : a.slice(0,-1).join(", ") + " and " + a[a.length-1];
+const titleCase = s => /[a-z]/.test(s) ? s : s.toLowerCase().replace(/\b([a-z])/g,(m,c)=>c.toUpperCase());
+const shortName = s => { const t = titleCase(s).replace(/(\S)\(/g,"$1 (").replace(/[\s,\-]*\b(L\.?\s?L\.?\s?C|W\.?L\.?L|FZ-?LLC|FZE)\b\.?([\s.\-]*(S\.?P|Sole Proprietorship))?\.?\s*$/i,"").replace(/[\s,\-]+$/,"").trim(); return t || s; };
+
+const MONTHS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+function parseMonth(lab){
+  if (lab instanceof Date) return new Date(lab.getFullYear(), lab.getMonth(), 1);
+  if (typeof lab==="number" && lab>20000){ const d=new Date(Math.round((lab-25569)*864e5)); return new Date(d.getUTCFullYear(), d.getUTCMonth(),1); }
+  const m = String(lab).toLowerCase().match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s\-'.,\/]*(\d{2,4})?/);
+  if (!m) return null;
+  let y = m[2] ? +m[2] : new Date().getFullYear(); if (y<100) y+=2000;
+  return new Date(y, MONTHS.indexOf(m[1]), 1);
+}
+const mShort = d => d.toLocaleString("en-US",{month:"short"});
+const mLong = d => d.toLocaleString("en-US",{month:"long"});
+const dShort = d => d.getDate() + " " + d.toLocaleString("en-US",{month:"short"});
+
+/* ===================== classification ===================== */
+const KNOWN_BRANDS = ["Euromed","Oximed","Dentacore","Imicryl","PreciDent","Ameya","Sutures India","Medalkan","Fantastic","Denbio","BMS","Beon","Kuwait Saudi","Gulf Inject","PSI","Denject"];
+const BRAND_STOP = /^(blue|green|red|white|yellow|black|regular|large|small|medium|x-?large|adult|pediatric|paediatric|standard|elongated|assorted|sterile|non sterile|uae)$/i;
+const PRODUCT_WORDS = /(mask|glove|syringe|needle|stethoscope|thermometer|nebuli|gown|bandage|gauze|tape|container|roll|sheet|set|cannula|bag|tissue|towel|paper|gel|strip|swab|pouch|reel|tray|cover|tip|bur|bond|composite|holder|bottle|ltr|ml|pcs)/i;
+const SEGMENTS = [
+  ["Cash / walk-in", /cash/i],
+  ["Fertility & gynaecology", /gyna?ecolog|fertility|\bivf\b|conceive|obstet|maternity/i],
+  ["One-day surgery", /one\s*day\s*surgery|day\s*surgery/i],
+  ["Dental", /dent|orthodon/i],
+  ["Pharmacy / medical store", /pharma|medical\s*store|drug\s*store|chemist/i],
+  ["Hospital", /hospital/i],
+  ["Medical center / polyclinic", /medical\s*cent|clinic|poly|health|diagnos|centre|center|medical/i],
+];
+const segmentOf = name => (SEGMENTS.find(([,re])=>re.test(name))||["Other / corporate"])[0];
+const CATEGORIES = [
+  ["Dental items", /\bburs?\b|bond|composite|etch|dental|bibs|saliva|impression|alginate|lignospan|suction tip|air water|chair sleeve|x ?ray sensor|whitening|hand ?piece|crown cutter|varnish|traysemme|barrier film|micro ?brush|elevator|denject|endo|gutta|prophy/i],
+  ["Respiratory", /nebuli[sz]er mask|oxygen mask|suction catheter|nasal cannula|oxygen/i],
+  ["Equipment & devices", /stethoscope|thermometer|nebuli[sz]er|oximeter|refri|penlight|dispenser|monitor|glucometer|sphygmo/i],
+  ["Gloves", /glove/i],
+  ["Gowns, masks & PPE", /mask|gown|\bcap\b|apron|shoe cover|isolation|coverall|face shield/i],
+  ["Sterilization", /pouch|\breels?\b|indicator|wrapping sheet|autoclav|distilled water|steriliz/i],
+  ["Waste & sharps", /sharp container|yellow bag|waste|pedal bin|\bbin\b|biohazard/i],
+  ["Paper & linen", /couch roll|bed roll|bed sheet|pillow|tissue|towel|ecg paper|drape/i],
+  ["Disinfectants & antiseptics", /alcohol|spirit|peroxide|detergent|medasept|sanitizer|disinfect|antiseptic|povidone|chlorhex|hand ?rub/i],
+  ["Wound care & dressings", /gauze|bandage|dressing|tape|plaster|band aid|cotton|paraffin/i],
+  ["Sutures & blades", /suture|nylon|polypropylene|\bsilk\b|blade|catgut|vicryl|scalpel/i],
+  ["Diagnostics & lab", /blood collection|strip|pipette|ultrasound|probe cover|ecg|gel|urine|specimen|test|vacutainer/i],
+  ["IV & infusion", /\biv\b|cannula|scalp vein|infusion|i\.v\./i],
+  ["Syringes & needles", /syringe|needle/i],
+  ["Exam & general", /tongue depressor|razor|speculum|applicator|spatula|tourniquet/i],
+];
+const categoryOf = name => (CATEGORIES.find(([,re])=>re.test(name))||["Other"])[0];
+function brandDictionary(names){
+  const dict = new Map(KNOWN_BRANDS.map(b=>[b.toLowerCase(), b]));
+  for (const n of names){
+    const i = n.lastIndexOf(" - "); if (i<0) continue;
+    let t = n.slice(i+3).replace(/\(.*?\)/g," ").replace(/\s+/g," ").trim();
+    if (!/^[A-Za-z][A-Za-z .&'\/]{1,24}$/.test(t)) continue;
+    if (t.split(" ").length>3 || BRAND_STOP.test(t) || PRODUCT_WORDS.test(t)) continue;
+    if (!dict.has(t.toLowerCase())) dict.set(t.toLowerCase(), t);
+  }
+  return dict;
+}
+function brandOf(name, dict){
+  let best=null, pos=-1;
+  for (const [k,v] of dict){
+    const re = new RegExp("(^|[^a-z])" + k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"), "gi");
+    let m; while ((m=re.exec(name))){ const p=m.index+m[1].length; if (p>pos){ pos=p; best=v; } }
+  }
+  return best || "Not specified";
+}
+/* compact product name: drop pack info in brackets and a trailing brand */
+function shortProd(n, brand){
+  let s = n.replace(/\([^)]*\)/g," ").replace(/\s+/g," ").trim();
+  if (brand && brand!=="Not specified"){ const re = new RegExp("[\\s\\-–]*\\(?"+brand.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\)?\\s*$","i"); s = s.replace(re,"").trim(); }
+  s = s.replace(/[\s\-–]+$/,"");
+  return s || n;
+}
+
+/* ===================== parsing ===================== */
+function parseWorkbook(wb, fileName){
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const aoa = XLSX.utils.sheet_to_json(ws,{header:1, raw:true, defval:null, blankrows:false});
+  let hdr=-1;
+  for (let i=0;i<Math.min(12,aoa.length);i++){ const r=aoa[i]||[]; if (r.slice(1).some(c=>c!=null && (parseMonth(c) || /total/i.test(String(c))))){ hdr=i; break; } }
+  if (hdr<0) throw new Error("Could not find the month header row. Row 1 should list months such as “August 2026” and a final “Total”.");
+  const top = aoa[hdr], sub = aoa[hdr+1]||[];
+  const width = Math.max(...aoa.slice(hdr, hdr+5).map(r=>r? r.length:0));
+  const groups=[]; let cur=null;
+  for (let j=1;j<width;j++){ const lab = top[j]; if (lab!=null && String(lab).trim()!==""){ cur={label:lab, cols:[]}; groups.push(cur); } if (cur) cur.cols.push(j); }
+  const subIsHeader = sub.some(c=>c!=null && /amount|quantity|qty|value/i.test(String(c)));
+  for (const g of groups){
+    const a = subIsHeader ? g.cols.find(c=>/amount|value|aed|sales/i.test(String(sub[c]??""))) : undefined;
+    const q = subIsHeader ? g.cols.find(c=>/qty|quantity|units/i.test(String(sub[c]??""))) : undefined;
+    g.a = a ?? g.cols[0]; g.q = q ?? g.cols[1] ?? null;
+    g.isTotal = /total/i.test(String(g.label));
+    g.date = g.isTotal ? null : parseMonth(g.label);
+  }
+  const monthGroups = groups.filter(g=>!g.isTotal);
+  if (!monthGroups.length) throw new Error("No month columns found in the header row.");
+  const totalGroup = groups.find(g=>g.isTotal) || null;
+  const valueCols = groups.flatMap(g=>[g.a,g.q]).filter(c=>c!=null);
+  const lines=[], customers=[];
+  let customer=null;
+  for (let i=hdr+(subIsHeader?2:1);i<aoa.length;i++){
+    const r=aoa[i]; if(!r) continue;
+    const raw = r[0]; if (raw==null || String(raw).trim()==="") continue;
+    const rawS = String(raw), s = rawS.replace(/\s+/g," ").trim();
+    const indent = rawS.match(/^\s*/)[0].length;
+    const hasNum = valueCols.some(c=>r[c]!=null && String(r[c]).trim()!=="" && isFinite(toNum(r[c])));
+    if (/^(grand\s*)?total\b/i.test(s)) continue;
+    const isProduct = /^\[/.test(s) || (indent>0 && hasNum && customer);
+    if (!isProduct){ customer = {name:s, display:shortName(s)}; customers.push(customer); continue; }
+    if (!customer){ customer={name:"(No customer)", display:"(No customer)"}; customers.push(customer); }
+    const m = s.match(/^\[([^\]]+)\]\s*(.*)$/);
+    const code = m ? m[1].trim() : s, name = (m ? m[2] : s).trim();
+    const months = monthGroups.map(g=>({a:toNum(r[g.a]), q: g.q!=null? toNum(r[g.q]):0}));
+    const tot = totalGroup ? {a:toNum(r[totalGroup.a]), q: totalGroup.q!=null? toNum(r[totalGroup.q]):0, present: r[totalGroup.a]!=null} : null;
+    lines.push({customer:customer.name, code, name, months, tot});
+  }
+  if (!lines.length) throw new Error("No product rows found. Product rows should start with an item code in brackets, e.g. “[EM-2313] Disposable Syringe…”.");
+  const dict = brandDictionary(lines.map(l=>l.name));
+  const pname = new Map(); for (const l of lines) if(!pname.has(l.code)) pname.set(l.code, l.name);
+  for (const l of lines){ l.pname = pname.get(l.code); l.brand = brandOf(l.name, dict); l.category = categoryOf(l.name); l.sname = shortProd(l.pname, brandOf(l.pname, dict)); }
+  let exec = "";
+  const cash = customers.find(c=>/cash/i.test(c.name));
+  if (cash){ const mm = cash.name.match(/\(([^)]+)\)/); if (mm) exec = mm[1].trim(); }
+  if (!exec && fileName){ exec = fileName.replace(/\.[^.]+$/,"").replace(/^[0-9a-f]{6,}[-_ ]/i,"").replace(/[_-]+/g," ").trim(); }
+  const months = monthGroups.map(g=>({date:g.date, name: g.date? mShort(g.date): String(g.label), long: g.date? mLong(g.date): String(g.label), year: g.date? g.date.getFullYear(): ""}));
+  return { months, hasTotal: !!totalGroup, lines, customers, exec, fileName };
+}
+
+/* ===================== analysis ===================== */
+function analyze(P, opt){
+  const M = P.months.length, partial = !!opt.partial && M>1, C = partial ? M-1 : M;
+  const T = opt.target>0 ? opt.target : 0, HV = opt.hv>0 ? opt.hv : 1500;
+  const excl = new Set(opt.exclude||[]);
+  const isCash = n => /cash/i.test(n);
+  const lines = P.lines.filter(l=>!excl.has(l.customer));
+  const exclRev = sum(P.lines.filter(l=>excl.has(l.customer)).flatMap(l=>l.months.map(x=>x.a)));
+  const months = P.months;
+  const mi = [...Array(M).keys()], ci = [...Array(C).keys()];
+
+  // reconciliation (whole file)
+  const mism = P.lines.filter(l=>l.tot && l.tot.present && (Math.abs(sum(l.months.map(x=>x.a))-l.tot.a)>0.01 || Math.abs(sum(l.months.map(x=>x.q))-l.tot.q)>0.01));
+  const fileTotal = P.hasTotal ? sum(P.lines.map(l=>l.tot? l.tot.a:0)) : null;
+
+  // monthly
+  const mRev = mi.map(i=>sum(lines.map(l=>l.months[i].a)));
+  const mQty = mi.map(i=>sum(lines.map(l=>l.months[i].q)));
+  const mRet = mi.map(i=>sum(lines.map(l=>Math.min(0,l.months[i].a))));
+  const mGross = mi.map(i=>sum(lines.map(l=>Math.max(0,l.months[i].a))));
+  const mom = mi.map(i=> i===0 || (partial && i===M-1) || !mRev[i-1] ? null : mRev[i]/mRev[i-1]-1);
+  const total = sum(mRev), gross = sum(mGross), returns = -sum(mRet);
+  const ach = mi.map(i=> T ? mRev[i]/T : null);
+  const cAvg = avg(mRev.slice(0,C));
+  let bestI=0, worstI=0; for (const i of ci){ if (mRev[i]>mRev[bestI]) bestI=i; if (mRev[i]<mRev[worstI]) worstI=i; }
+  const growingEvery = C>=2 && ci.slice(1).every(i=>mRev[i]>mRev[i-1]);
+  // partial month pace
+  let daysIn=null, daysEl=null, pace=null, needPerDay=null, remaining=null, periodEnd=null;
+  const last = months[M-1].date;
+  if (last){ daysIn = new Date(last.getFullYear(), last.getMonth()+1, 0).getDate(); }
+  if (partial && last){
+    const rd = opt.reportDate;
+    daysEl = (rd.getFullYear()===last.getFullYear() && rd.getMonth()===last.getMonth()) ? Math.max(1, rd.getDate()-1) : daysIn;
+    pace = mRev[M-1]/daysEl*daysIn;
+    remaining = T ? Math.max(0, T - mRev[M-1]) : null;
+    needPerDay = T && daysIn>daysEl ? remaining/(daysIn-daysEl) : null;
+    periodEnd = new Date(last.getFullYear(), last.getMonth(), daysEl);
+  } else if (last){ periodEnd = new Date(last.getFullYear(), last.getMonth(), daysIn); }
+
+  // ---- customers
+  const custMap = new Map();
+  for (const c of P.customers){ if (excl.has(c.name)) continue; custMap.set(c.name, {name:c.name, display:c.display, segment:segmentOf(c.name), cash:isCash(c.name), m:Array(M).fill(0), g:Array(M).fill(0), q:Array(M).fill(0), prod:new Map(), cats:new Set()}); }
+  for (const l of lines){
+    const c = custMap.get(l.customer);
+    l.months.forEach((x,i)=>{ c.m[i]+=x.a; c.q[i]+=x.q; if (x.a>0) c.g[i]+=x.a; });
+    const t = sum(l.months.map(x=>x.a));
+    if (t>0.0001){ c.cats.add(l.category); const pr = c.prod.get(l.code)||{code:l.code, name:l.sname, a:0}; pr.a+=t; c.prod.set(l.code, pr); }
+  }
+  const custs = [...custMap.values()];
+  const trendOf = (arr, first) => {
+    if (first<0) return {trend:null, pct:null};
+    const earlier = arr.slice(first, C-1);
+    if (!earlier.length) return {trend:null, pct:null};
+    const recent = arr[C-1] + (partial? arr[M-1]:0), a = avg(earlier);
+    if (a<=0) return {trend: recent>0? "Increasing": null, pct:null};
+    const p = recent/a-1;
+    return {trend: p>0.10 ? "Increasing" : p<-0.10 ? "Declining" : "Stable", pct:p};
+  };
+  for (const c of custs){
+    c.total = sum(c.m);
+    c.act = c.g.map(v=>v>0.0001);
+    c.nAct = c.act.filter(Boolean).length;
+    c.first = c.act.indexOf(true); c.last = c.act.lastIndexOf(true);
+    c.nProd = c.prod.size;
+    const winStart = Math.max(0, C-1);
+    c.recent = c.act.slice(winStart).some(Boolean);
+    Object.assign(c, c.nAct>=2 ? trendOf(c.m, c.first) : {trend:null, pct:null});
+    c.hv = c.total >= HV;
+    c.billed = c.nAct>0;
+    c.lifecycle = !c.billed ? "No sales" : (!c.recent && c.first < winStart) ? "Inactive" : c.nAct===1 ? (c.first>=winStart ? "New" : "One-time") : (c.first>0 && c.first>=C-1 ? "New" : "Repeat");
+    c.monthlyVal = c.nAct ? c.total/c.nAct : 0;
+    c.activeLabel = c.act.map((a,i)=>a?months[i].name:null).filter(Boolean);
+    c.basket = [...c.prod.values()].sort((a,b)=>b.a-a.a);
+  }
+  const billed = custs.filter(c=>c.billed);
+  const accounts = billed.filter(c=>!c.cash);
+  const repeat = billed.filter(c=>c.nAct>=2);
+  const ranked = [...billed].sort((a,b)=>b.total-a.total);
+  const top5 = sum(ranked.slice(0,5).map(c=>c.total))/total, top10 = sum(ranked.slice(0,10).map(c=>c.total))/total;
+  const inactive = accounts.filter(c=>c.lifecycle==="Inactive").sort((a,b)=>b.total-a.total);
+  const allMonths = billed.filter(c=>c.nAct===M);
+  const declining = billed.filter(c=>c.trend==="Declining").sort((a,b)=>b.total-a.total);
+  const increasing = billed.filter(c=>c.trend==="Increasing").sort((a,b)=>b.total-a.total);
+  const newByMonth = mi.map(i=>billed.filter(c=>c.first===i).length);
+  const activeByMonth = mi.map(i=>billed.filter(c=>c.act[i]).length);
+  const narrow = accounts.filter(c=>c.nProd<=2).sort((a,b)=>b.total-a.total);
+  const p75 = (()=>{ const v=[...accounts.map(c=>c.total)].sort((a,b)=>a-b); return v.length? v[Math.floor(v.length*0.75)] : 1; })();
+
+  // retention
+  const retention = mi.slice(1).map(i=>{
+    const prior = billed.filter(c=>c.act[i-1]);
+    const kept = prior.filter(c=>c.act[i]);
+    return {from:months[i-1].name, to:months[i].name, prior:prior.length, kept:kept.length, rate: prior.length? kept.length/prior.length : null, newL: billed.filter(c=>c.first===i).length, churn: prior.length-kept.length, partial: partial && i===M-1};
+  });
+  const lastFullRet = retention.filter(r=>!r.partial).slice(-1)[0];
+
+  // health score
+  for (const c of billed){
+    const lastFull = partial ? M-2 : M-1;
+    const gap = Math.max(0, lastFull - c.last);
+    const rec = c.last===M-1 || gap===0 ? 30 : gap===1 ? 15 : 0;
+    const freq = 25 * c.nAct / M;
+    const val = 20 * Math.min(1, c.total / Math.max(1,p75));
+    const tr = c.trend==="Increasing" ? 15 : c.trend==="Declining" ? 0 : 8;
+    const br = 10 * Math.min(1, c.nProd/8);
+    c.health = Math.round(rec+freq+val+tr+br);
+    c.healthTier = c.health>=80 ? "Strong" : c.health>=55 ? "Fair" : "At risk";
+  }
+
+  // priority tiers
+  for (const c of billed){
+    if (c.lifecycle==="Inactive" && !c.cash){ c.tier=2; c.tierWhy = `silent since ${months[c.last].name}`; }
+    else if (c.hv && c.trend==="Declining"){ c.tier=2; c.tierWhy = `declining ${pcs(c.pct)}`; }
+    else if (c.hv && c.recent){ c.tier=1; c.tierWhy = c.lifecycle==="New" ? "new" : c.trend==="Increasing" ? "growing" : "steady"; }
+    else if (c.first>=Math.max(1,C-1) || (c.nAct===1 && c.recent)){ c.tier=3; c.tierWhy = c.nAct===1 ? `${months[c.first].name} only` : c.trend==="Declining" ? "declining" : `since ${months[c.first].name}`; }
+    else { c.tier=4; c.tierWhy = c.trend ? c.trend.toLowerCase() : "steady"; }
+  }
+  const tiers = [1,2,3,4].map(t=>billed.filter(c=>c.tier===t).sort((a,b)=>b.total-a.total));
+
+  // ---- products
+  const prodMap = new Map();
+  for (const l of lines){
+    const p = prodMap.get(l.code) || {code:l.code, name:l.pname, sname:l.sname, brand:l.brand, category:l.category, rev:0, qty:0, m:Array(M).fill(0), buyers:new Map(), pa:0, pq:0, neg:false, lineMax:0};
+    l.months.forEach((x,i)=>{
+      p.rev+=x.a; p.qty+=x.q; p.m[i]+=x.a; if (x.a<0) p.neg=true;
+      if (x.a>0){ const b=p.buyers.get(l.customer)||{a:0,q:0}; b.a+=x.a; if (x.q>0) b.q+=x.q; p.buyers.set(l.customer,b); if(x.q>0){p.pa+=x.a; p.pq+=x.q;} p.lineMax=Math.max(p.lineMax,x.a); }
+    });
+    if (p.brand==="Not specified" && l.brand!=="Not specified") p.brand=l.brand;
+    prodMap.set(l.code,p);
+  }
+  const prods = [...prodMap.values()];
+  const consistentMin = M>=3 ? M-1 : M;
+  for (const p of prods){
+    p.nAct = p.m.filter(v=>v>0.0001).length;
+    p.first = p.m.findIndex(v=>v>0.0001);
+    p.asp = p.pq>0 ? p.pa/p.pq : null;
+    p.nBuyers = p.buyers.size;
+    p.accBuyers = [...p.buyers.keys()].filter(c=>!isCash(c));
+    const per = [...p.buyers.entries()].filter(([,b])=>b.q>0).map(([c,b])=>({c, price:b.a/b.q}));
+    p.custPrices = per;
+    if (per.length>=2){ p.minP=Math.min(...per.map(x=>x.price)); p.maxP=Math.max(...per.map(x=>x.price)); p.spread=p.maxP/p.minP-1; } else p.spread=null;
+    p.oneOcc = p.nAct===1 && p.nBuyers===1;
+    p.equip = p.category==="Equipment & devices" || (p.asp!=null && p.asp>=1000);
+    p.consistent = p.nAct>=consistentMin && p.rev>0;
+    const t = trendOf(p.m, p.first); p.trend = t.trend; p.pct = t.pct;
+    p.pattern = p.neg && Math.abs(p.rev) < 0.25*sum(p.m.filter(v=>v>0)) ? "Returns, noisy" : p.trend || "–";
+  }
+  const sold = prods.filter(p=>p.rev>0.0001);
+  const topRev = [...sold].sort((a,b)=>b.rev-a.rev);
+  const topQty = [...prods].filter(p=>p.qty>0).sort((a,b)=>b.qty-a.qty);
+  const consistent = [...sold].filter(p=>p.consistent).sort((a,b)=>b.nAct-a.nAct || b.rev-a.rev);
+  const oneOcc = sold.filter(p=>p.oneOcc);
+  const equipRev = sum(prods.filter(p=>p.equip).map(p=>p.rev));
+  const equipProds = prods.filter(p=>p.equip && p.rev>0).sort((a,b)=>b.rev-a.rev);
+  const clear = p => { const s=p.m.slice(0,C), pos=s.map((v,i)=>[v,i]).filter(([v])=>v>0); if (pos.length<2 || p.neg) return null;
+    const lastC=s[C-1], firstV=pos[0][0], maxEarlier=Math.max(...s.slice(0,C-1));
+    if (lastC>0 && lastC===Math.max(...s) && lastC>firstV*1.3 && pos.every(([v],k)=>k===0||v>pos[k-1][0])) return "up";
+    if (lastC < maxEarlier*0.5) return "down"; return null; };
+  const prodInc = sold.filter(p=>clear(p)==="up").sort((a,b)=>b.rev-a.rev).slice(0,4);
+  const prodDec = sold.filter(p=>clear(p)==="down" && p.nAct>=2).sort((a,b)=>b.rev-a.rev).slice(0,4);
+  const brandMap = new Map(); for (const p of prods) brandMap.set(p.brand,(brandMap.get(p.brand)||0)+p.rev);
+  const brands = [...brandMap.entries()].map(([name,v])=>({name,v})).filter(b=>b.v>0).sort((a,b)=>b.v-a.v);
+  const catMap = new Map(); for (const p of prods){ const c=catMap.get(p.category)||{name:p.category,v:0,n:0}; c.v+=p.rev; if(p.rev>0)c.n++; catMap.set(p.category,c); }
+  const cats = [...catMap.values()].filter(c=>c.v>0).sort((a,b)=>b.v-a.v);
+  const priceFlags = prods.filter(p=>p.spread!=null && p.spread>0.05).sort((a,b)=>b.spread-a.spread);
+  const multiBuyer = prods.filter(p=>p.custPrices.length>=2).length;
+  const unbranded = prods.filter(p=>p.brand==="Not specified");
+
+  // cross-sell recommendations per account (products similar accounts buy, this account does not)
+  const recCount = new Map();
+  const jac = (a,b) => { let i=0; for (const k of a.prod.keys()) if (b.prod.has(k)) i++; const u = a.prod.size + b.prod.size - i; return u? i/u : 0; };
+  for (const c of [...accounts].sort((a,b)=>b.total-a.total)){
+    const dentalC = c.segment==="Dental" || c.cats.has("Dental items");
+    const w = new Map(accounts.filter(o=>o!==c).map(o=>[o.name, (o.segment===c.segment?2:1) * (1 + 3*jac(c,o))]));
+    c.recs = sold.filter(p=>!p.equip && !c.prod.has(p.code) && (p.category!=="Dental items" || dentalC))
+      .map(p=>{ const buyers = p.accBuyers.filter(b=>w.has(b)); let sc = sum(buyers.map(b=>w.get(b)));
+        if (c.cats.has(p.category)) sc += 1.5; if (dentalC && p.category==="Dental items") sc += 2;
+        sc -= 0.8*(recCount.get(p.code)||0); return {p, sc, n:buyers.length}; })
+      .filter(x=>x.n>=2).sort((a,b)=>b.sc-a.sc || b.p.rev-a.p.rev).slice(0,3).map(x=>x.p);
+    for (const p of c.recs) recCount.set(p.code,(recCount.get(p.code)||0)+1);
+  }
+
+  // returns & exceptions
+  const negs=[]; for (const l of lines) l.months.forEach((x,i)=>{ if (x.a<0||x.q<0) negs.push({c:l.customer, code:l.code, name:l.sname, month:months[i].name, a:x.a, q:x.q}); });
+  negs.sort((a,b)=>a.a-b.a);
+  const free=[]; for (const l of lines) l.months.forEach((x,i)=>{ if (x.a===0 && x.q>0) free.push({c:l.customer, name:l.sname, month:months[i].name, q:x.q}); });
+
+  // opportunity sizing (estimates)
+  const reactVal = sum(inactive.map(c=>c.monthlyVal));
+  const narrowMonthly = sum(narrow.filter(c=>c.recent).map(c=>c.monthlyVal));
+  const newLogoMonths = ci.slice(1);
+  const newPace = newLogoMonths.length ? avg(newLogoMonths.map(i=>newByMonth[i])) : 0;
+  const newFirstAvg = avg(billed.filter(c=>c.first>0 && c.first<C).map(c=>c.m[c.first]));
+  const consumablesBest = mRev[bestI] - sum(prods.filter(p=>p.equip).map(p=>p.m[bestI]));
+
+  return {P, M, C, partial, T, HV, months, mRev, mQty, mRet, mGross, mom, total, gross, returns, ach, cAvg, bestI, worstI, growingEvery,
+    daysIn, daysEl, pace, needPerDay, remaining, periodEnd, custMap, custs, billed, accounts, repeat, ranked, top5, top10, inactive,
+    allMonths, declining, increasing, newByMonth, activeByMonth, narrow, retention, lastFullRet, tiers,
+    prods, sold, topRev, topQty, consistent, oneOcc, equipRev, equipProds, prodInc, prodDec, brands, cats, priceFlags, multiBuyer, unbranded,
+    negs, free, reactVal, narrowMonthly, newPace, newFirstAvg, consumablesBest, mism, fileTotal, excl:[...excl], exclRev, lines};
+}
+
+/* ===================== plain-language report card ===================== */
+const GOOD="Good", OK="OK", BAD="Needs work";
+function scorecard(R){
+  const out=[]; const C=R.C, mo=R.months;
+  const rate = (v, good, ok, hi=true) => v==null ? "Not set" : hi ? (v>=good?GOOD:v>=ok?OK:BAD) : (v<=good?GOOD:v<=ok?OK:BAD);
+  if (R.T){ const b=R.ach[R.bestI]; out.push({k:"Hitting the target", r:rate(b,1,0.75), v:`Best month ${pc0(b)}`, why: b>=1 ? `${mo[R.bestI].long} beat the ${aed(R.T)} target.` : `No month has reached ${aed(R.T)} yet. Best was ${mo[R.bestI].long} at ${pc0(b)}.`}); }
+  if (C>=2){ const g = R.mRev[0] ? R.mRev[C-1]/R.mRev[0]-1 : null; out.push({k:"Sales growing", r:rate(g,0.2,0), v:pcs(g), why: R.growingEvery ? `Sales went up every month: ${R.mRev.slice(0,C).map(n0).join(" → ")} AED.` : `Sales moved from ${n0(R.mRev[0])} to ${n0(R.mRev[C-1])} AED.`}); }
+  const rr = R.billed.length ? R.repeat.length/R.billed.length : null;
+  out.push({k:"Customers coming back", r:rate(rr,0.6,0.4), v:pc0(rr), why:`${R.repeat.length} of ${R.billed.length} customers bought in more than one month.`});
+  if (C>=2) out.push({k:"Finding new customers", r:rate(R.newPace,3,1), v:`${R.newPace.toFixed(1)} a month`, why:`About ${Math.round(R.newPace)} new customer${Math.round(R.newPace)===1?"":"s"} a month after ${mo[0].name}.`});
+  out.push({k:"Not depending on a few", r:rate(R.top5,0.5,0.7,false), v:`Top 5 = ${pc0(R.top5)}`, why:`The 5 biggest customers bring ${pc0(R.top5)} of sales.${R.top5>0.5?" Losing one would hurt.":""}`});
+  const dv = R.accounts.map(c=>c.nProd).sort((a,b)=>a-b), med = dv.length ? dv[Math.floor((dv.length-1)/2)] : 0;
+  out.push({k:"Items per customer", r:rate(med,8,4), v:`${med} items (typical)`, why:`${R.narrow.length} customer${R.narrow.length===1?"":"s"} buy only 1–2 different items.`});
+  const ret = R.gross ? R.returns/R.gross : 0;
+  out.push({k:"Few returns", r:rate(ret,0.02,0.05,false), v:pc(ret), why:`${aed(R.returns)} came back as returns.`});
+  const pf = R.multiBuyer ? R.priceFlags.length/R.multiBuyer : 0;
+  out.push({k:"Same price for everyone", r:rate(pf,0.2,0.4,false), v:`${R.priceFlags.length} items differ`, why:`${R.priceFlags.length} of ${R.multiBuyer} items were sold at different prices to different customers.`});
+  return out;
+}
+const rateCls = r => r===GOOD?"g": r===OK?"a": r===BAD?"r":"n";
+const COL = {g:"#138a36", a:"#e09a1a", r:"#d0402f", b:"#2463c7", n:"#9aa5b1", v:"#5b46c2", t:"#0b7a72"};
+const PAL = ["#2a78d6","#eb6834","#1baf7a","#eda100","#e87ba4","#008300","#6250d6","#e34948","#0b7a72","#a86400"];
+
+/* ===================== suggestion engine (driven by each file's data) ===================== */
+function suggestions(R){
+  const S=[]; const mo=R.months, M=R.M, C=R.C;
+  const names = (list,n=3) => listJoin(list.slice(0,n).map(c=>c.display)) + (list.length>n?` and ${list.length-n} more`:"");
+  const prodNames = c => c.basket.slice(0,2).map(b=>trunc(b.name,26)).join(", ");
+  if (R.inactive.length) S.push({pri:"now", title:`Win back ${R.inactive.length} customer${R.inactive.length>1?"s":""} who stopped buying`,
+    why:`${names(R.inactive)} bought ${aed(sum(R.inactive.map(c=>c.total)))} from us, then nothing since ${mo[Math.max(...R.inactive.map(c=>c.last))].long}.`,
+    steps:["Call each one this week.","Ask what changed: price, stock, delivery or a competitor?", `Offer what they bought before (e.g. ${esc(prodNames(R.inactive[0]))}).`], gain:[R.reactVal,R.reactVal]});
+  const dec = R.declining.filter(c=>!c.cash);
+  if (dec.length){ const lost = sum(dec.map(c=>{ const e=c.m.slice(c.first,C-1); return avg(e)*Math.min(1,-c.pct); }));
+    S.push({pri:"now", title:`Find out why ${dec.length} customer${dec.length>1?"s are":" is"} buying less`, why: dec.slice(0,2).map(c=>`${c.display}: ${c.m.slice(c.first).map(n0).join(" → ")} AED`).join("; ")+".",
+      steps:["Visit in person, don't just call.","Ask if anything went wrong with an order, price or delivery.","Agree a regular monthly order to get back to the earlier level."], gain:[lost*0.5,lost]}); }
+  if (R.T && R.cAvg < R.T){ const gap=R.T-R.cAvg, act=R.activeByMonth[C-1]||1;
+    const st2=[`That is about ${aed(gap/act)} more from each of the ${act} customers who bought last month,`];
+    if (R.newFirstAvg>0) st2.push(`or about ${Math.ceil(gap/R.newFirstAvg)} extra new customers a month (a new customer's first month is about ${aed(R.newFirstAvg)}).`);
+    if (R.partial && R.needPerDay!=null) st2.push(`This month: sell about ${aed(R.needPerDay)} a day for the remaining ${R.daysIn-R.daysEl} days to reach ${aed(R.T)}.`);
+    S.push({pri:"now", title:`Close the gap to the ${aed(R.T)} monthly target`, why:`An average month is ${aed(R.cAvg)} (${pc0(R.cAvg/R.T)} of target), so we need about ${aed(gap)} more every month.`, steps:st2, gain:null}); }
+  if (R.narrow.length){ const ex = R.narrow.filter(c=>c.recs?.length).slice(0,2);
+    S.push({pri:"month", title:`Sell more items to ${R.narrow.length} customer${R.narrow.length>1?"s":""} who buy only 1–2 things`, why:`${names(R.narrow)} each buy just one or two items, while similar customers buy many more.`,
+      steps: ex.map(c=>`Offer ${esc(c.recs.slice(0,2).map(p=>trunc(p.sname,24)).join(" and "))} to ${esc(c.display)}.`).concat(["Bring a short product list on every visit."]), gain:[R.narrowMonthly*0.2,R.narrowMonthly*0.3]}); }
+  const once = R.billed.filter(c=>!c.cash && c.nAct===1 && c.recent);
+  if (once.length){ const v=avg(once.map(c=>c.total));
+    S.push({pri:"month", title:`Turn ${once.length} new customer${once.length>1?"s":""} into regular buyers`, why:`${names(once)} ordered only once (in ${listJoin([...new Set(once.map(c=>mo[c.first].name))])}).`,
+      steps:["Visit within two weeks of the first order.","Ask what else they use every month.","Agree a simple monthly order list."], gain:[v*once.length*0.4, v*once.length*0.7]}); }
+  const rising = R.prodInc[0];
+  if (rising){ const non = R.ranked.filter(c=>!c.cash && !rising.buyers.has(c.name)).slice(0,3); const per = rising.rev/Math.max(1,rising.nBuyers)/M;
+    S.push({pri:"month", title:`Push ${trunc(rising.sname,34)} — demand is rising`, why:`Sales went ${rising.m.map(n0).join(" → ")} AED. Only ${rising.accBuyers.length} of ${R.accounts.length} customers buy it.`,
+      steps:[`Offer it to ${esc(names(non))}.`,"Make sure there is enough stock."], gain:[per*non.length*0.5, per*non.length]}); }
+  const fall = R.prodDec[0];
+  if (fall){ const lost = Math.max(...fall.m.slice(0,C-1)) - fall.m[C-1];
+    S.push({pri:"month", title:`Check why ${trunc(fall.sname,34)} sales dropped`, why:`Sales went ${fall.m.map(n0).join(" → ")} AED.`, steps:[`Ask ${esc(listJoin([...fall.buyers.keys()].slice(0,3).map(n=>R.custMap.get(n)?.display||n)))} if they still need it.`,"Check stock and price against competitors."], gain:[lost*0.3,lost*0.6]}); }
+  if (R.top5>0.5){ const next = R.ranked.slice(5).filter(c=>!c.cash && c.lifecycle!=="Inactive" && c.trend!=="Declining").slice(0,5); const v = sum(next.map(c=>c.monthlyVal));
+    S.push({pri:"month", title:"Depend less on a few big customers", why:`The top 5 customers bring ${pc0(R.top5)} of all sales.`, steps:[`Grow the next group: ${esc(names(next,4))}.`, "Aim for 20% more from each of them."], gain:[v*0.15,v*0.25]}); }
+  if (R.priceFlags.length){ let g=0; for (const p of R.priceFlags) for (const x of p.custPrices){ const b=p.buyers.get(x.c); g += (p.maxP - x.price)*b.q; } g = g/M;
+    const p=R.priceFlags[0];
+    S.push({pri:"month", title:`Use one price list (${R.priceFlags.length} items have different prices)`, why:`Example: ${trunc(p.sname,30)} was sold from ${n2(p.minP)} to ${n2(p.maxP)} AED per unit to different customers.`, steps:["Agree standard prices with your manager.","Give discounts only with a reason (e.g. bigger order)."], gain:[g*0.25,g*0.5]}); }
+  if (R.gross && R.returns/R.gross>0.02){ const t=[...R.negs.reduce((m,n)=>m.set(n.c,(m.get(n.c)||0)+n.a),new Map()).entries()].sort((a,b)=>a[1]-b[1])[0];
+    S.push({pri:"month", title:"Cut down on returns", why:`${aed(R.returns)} came back (${pc(R.returns/R.gross)} of sales). Most from ${R.custMap.get(t[0])?.display}.`, steps:["Double-check item, size and quantity before delivery.",`Talk to ${esc(R.custMap.get(t[0])?.display)} about why items came back.`], gain:[R.returns/M*0.5,R.returns/M]}); }
+  const cash = R.billed.filter(c=>c.cash), cashV = sum(cash.map(c=>c.total));
+  if (cashV/R.total>0.08) S.push({pri:"month", title:"Turn walk-in buyers into regular accounts", why:`Cash sales were ${aed(cashV)} (${pc0(cashV/R.total)} of sales), but we don't know who these buyers are.`, steps:["Note the name and phone of anyone who buys twice.","Offer them an account with monthly delivery."], gain:null});
+  if (R.equipProds[0] && R.equipRev/R.total>0.05){ const e=R.equipProds[0]; S.push({pri:"month", title:"Offer one bigger item to top customers", why:`One ${trunc(e.sname,30)} sale brought ${aed(e.rev)} — bigger items lift a month fast.`, steps:[`Ask ${esc(names(R.tiers[0].filter(c=>!c.cash),3))} what equipment they plan to buy.`], gain:null}); }
+  if (C>=2 && R.newPace<1) S.push({pri:"now", title:"Find new customers", why:`Only ${R.newPace.toFixed(1)} new customers a month.`, steps:["Visit 2 new clinics or pharmacies each week.","Start with places near your best customers."], gain:R.newFirstAvg?[R.newFirstAvg,R.newFirstAvg*2]:null});
+  // keep doing
+  if (R.newPace>=2) S.push({pri:"keep", title:"Keep finding new customers", why:`About ${Math.round(R.newPace)} new customers a month has driven growth.`, steps:[], gain:null});
+  if (R.growingEvery) S.push({pri:"keep", title:"Keep the growth going", why:`Sales grew every month: ${R.mRev.slice(0,C).map(n0).join(" → ")} AED.`, steps:[], gain:null});
+  if (R.repeat.length/R.billed.length>=0.6) S.push({pri:"keep", title:"Keep customers coming back", why:`${pc0(R.repeat.length/R.billed.length)} of customers bought more than once.`, steps:[], gain:null});
+  const ord = {now:0, month:1, keep:2};
+  return S.sort((a,b)=> ord[a.pri]-ord[b.pri] || ((b.gain?b.gain[1]:0)-(a.gain?a.gain[1]:0)));
+}
+
+/* ===================== small chart builders (HTML/SVG, print-safe) ===================== */
+let STATE = null;
+const st = (txt, cls) => `<span class="st ${cls}">${esc(txt)}</span>`;
+const trendPill = t => t==="Increasing"? st("Going up","g") : t==="Declining"? st("Going down","r") : t==="Stable"? st("Steady","n") : t==="Returns, noisy"? st("Mixed","a") : st("Too new","n");
+const cn = c => esc(c.display);
+const trendCol = c => c.lifecycle==="Inactive" ? COL.r : c.trend==="Increasing" ? COL.g : c.trend==="Declining" ? COL.a : COL.n;
+function hbars(rows, max){ return `<div class="hbs">${rows.map((r,i)=>`<div class="hb"><span class="l" title="${esc(r.l)}">${esc(r.l)}</span><span class="tr2"><i style="width:${Math.max(1.5, Math.max(0,r.v)/max*100)}%;background:${r.c||COL.b}"></i></span><span class="v">${r.t ?? n0(r.v)}</span></div>`).join("")}</div>`; }
+function donut(items, center, sub){
+  const it = items.filter(i=>i.v>0); const tot = sum(it.map(i=>i.v))||1; const r=52, Cc=2*Math.PI*r; let off=0;
+  const arcs = it.map(i=>{ const len=i.v/tot*Cc; const s=`<circle cx="70" cy="70" r="${r}" fill="none" stroke="${i.c}" stroke-width="24" stroke-dasharray="${Math.max(0,len-1.5)} ${Cc-len+1.5}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"/>`; off+=len; return s; }).join("");
+  return `<div class="donut"><svg viewBox="0 0 140 140" width="150" height="150" role="img" aria-label="${esc(sub)}">${arcs}<text x="70" y="70" text-anchor="middle" font-size="22" font-weight="700" fill="#14202b" font-family="Hanken Grotesk, Arial, sans-serif">${esc(center)}</text><text x="70" y="88" text-anchor="middle" font-size="10" fill="#7d8996" font-family="Hanken Grotesk, Arial, sans-serif">${esc(sub)}</text></svg><ul class="lg">${it.map(i=>`<li><i style="background:${i.c}"></i><span>${esc(i.l)}</span><b>${i.t ?? n0(i.v)}</b></li>`).join("")}</ul></div>`;
+}
+function gauge(p){
+  const v=Math.max(0,Math.min(1,p)); const L=Math.PI*60; const col = p>=1?COL.g:p>=0.75?COL.a:COL.r;
+  return `<svg viewBox="0 0 160 96" width="190" height="114" role="img" aria-label="${pc0(p)} of target"><path d="M20 84 A60 60 0 0 1 140 84" fill="none" stroke="#e8edf2" stroke-width="16"/><path d="M20 84 A60 60 0 0 1 140 84" fill="none" stroke="${col}" stroke-width="16" stroke-dasharray="${v*L} ${L}"/><text x="80" y="80" text-anchor="middle" font-size="26" font-weight="700" fill="#14202b" font-family="Hanken Grotesk, Arial, sans-serif">${pc0(p)}</text></svg>`;
+}
+function stackCols(labels, series, h=150){
+  const tot = labels.map((_,i)=>sum(series.map(s=>s.v[i]))); const mx = Math.max(1,...tot);
+  return `<div class="sc" style="--n:${labels.length}">${labels.map((l,i)=>`<div class="scol"><b>${tot[i]}</b><div class="sstack" style="height:${tot[i]/mx*h}px">${series.map(s=>s.v[i]?`<i style="flex:${s.v[i]};background:${s.c}" title="${esc(s.l)}: ${s.v[i]}"><span>${s.v[i]}</span></i>`:"").join("")}</div><small>${esc(l)}</small></div>`).join("")}</div><div class="legend2">${series.map(s=>`<span><i style="background:${s.c}"></i>${esc(s.l)}</span>`).join("")}</div>`;
+}
+const spark = (vals, partialLast) => { const mx=Math.max(1,...vals.map(v=>Math.abs(v))); return `<span class="spk">${vals.map((v,i)=>`<i style="height:${Math.max(2,Math.abs(v)/mx*100)}%;background:${v<0?COL.r:(partialLast&&i===vals.length-1)?"#f0b44c":COL.b}"></i>`).join("")}</span>`; };
+function nextStep(R,c){
+  const mo=R.months;
+  if (c.tier===2 && c.lifecycle==="Inactive") return `Call this week. Last order ${mo[c.last].name} (${aed(c.total)}). Offer ${esc(c.basket.slice(0,2).map(b=>trunc(b.name,30)).join(", "))} again.`;
+  if (c.tier===2) return `Visit and ask why orders dropped (${pcs(c.pct)}).`;
+  if (c.tier===1) return c.recs?.length ? `Keep happy; offer ${esc(c.recs.slice(0,2).map(p=>trunc(p.sname,32)).join(" and "))}.` : `Keep happy; agree a monthly order.`;
+  return c.recs?.length ? `Get a second order; offer ${esc(trunc(c.recs[0].sname,36))}.` : `Get a second order.`;
+}
+
+function render(){
+  const {P, opt} = STATE;
+  const R = analyze(P, opt); STATE.R = R;
+  const M=R.M, C=R.C, mo=R.months, T=R.T, last=mo[M-1], yr=mo[M-1].year;
+  const periodTxt = `${mo[0].date? "1 "+mo[0].name : mo[0].name} – ${R.periodEnd? dShort(R.periodEnd) : last.name} ${yr}`;
+  const pages=[]; const page = b => pages.push(b);
+  const footer = (i,n) => `<div class="pf"><span>${esc(opt.territory||opt.company)} — ${esc(opt.title)}</span><span>Page ${i} of ${n}</span></div>`;
+  const sec = (num, t, sub="") => `<div class="sec"><h2>${num!==""?`<span>${num}</span>`:""}${esc(t)}</h2></div>${sub?`<p class="sub">${sub}</p>`:""}`;
+  const so = (txt, kind="b") => `<div class="so ${kind}">${txt}</div>`;
+  const isPart = i => R.partial && i===M-1;
+  const SC = scorecard(R), SG = suggestions(R);
+  const bigEquip = R.equipProds[0];
+  const equipShare = R.total ? R.equipRev/R.total : 0;
+  const exclNames = R.excl.map(n=>P.customers.find(c=>c.name===n)?.display||n);
+  const rr = R.repeat.length/R.billed.length;
+
+  /* ---- month column chart (vs target) ---- */
+  const tgtMax = Math.max(T||0, ...R.mRev, 1), H=168;
+  const colC = i => isPart(i) ? "#f0b44c" : T && R.ach[i]>=1 ? COL.g : COL.b;
+  const vbars = `<div class="vb" style="--n:${M}">${T?`<div class="tline" style="bottom:${T/tgtMax*H}px"><span>Target ${n0(T)}</span></div>`:""}${mo.map((m,i)=>`<div class="col"><span class="val">${n0(R.mRev[i])}</span>${R.mom[i]!=null?`<span class="arrow ${R.mom[i]>=0?"up":"dn"}">${R.mom[i]>=0?"▲":"▼"} ${pc0(Math.abs(R.mom[i]))}</span>`:""}<div class="bar2" style="height:${Math.max(2,R.mRev[i]/tgtMax*H)}px;background:${colC(i)}"></div></div>`).join("")}</div>
+    <div class="vbl" style="--n:${M}">${mo.map((m,i)=>`<div><b>${esc(m.long)}</b><span>${isPart(i)?`so far (${R.daysEl} days)`: T? pc0(R.ach[i])+" of target":""}</span></div>`).join("")}</div>`;
+
+  /* ===== PAGE 1: cover + 30-second summary ===== */
+  const light = SC.map(s=>`<li class="${rateCls(s.r)}"><i></i><div><b>${esc(s.k)}</b> — ${esc(s.why)}</div><span>${esc(s.r)}</span></li>`).join("");
+  const nG=SC.filter(s=>s.r===GOOD).length, nA=SC.filter(s=>s.r===OK).length, nR=SC.filter(s=>s.r===BAD).length;
+  const top3 = SG.filter(s=>s.pri!=="keep").slice(0,3);
+  page(`
+    <div class="cover"><div class="k">${esc(opt.company)}${opt.territory?" — "+esc(opt.territory):""}</div><h1>${esc(opt.title)}</h1>
+      <div class="s">Prepared by ${esc(opt.exec||"–")} · For: ${esc(opt.prepfor)}</div>
+      <div class="meta"><span>Period <b>${esc(periodTxt)}</b></span>${T?`<span>Monthly target <b>${aed(T)}</b></span>`:""}<span>File <b>${esc(P.fileName)}</b></span></div></div>
+    ${R.excl.length? `<div class="note r"><b>Not counted:</b><span>${esc(listJoin(exclNames))} (${esc(opt.exReason||"excluded")}). Removed from every number (${aed(R.exclRev)}).</span></div>`:""}
+    ${sec("", "The report in 30 seconds")}
+    <div class="hero">
+      <div class="big"><span>Total sales</span><b>${n0(R.total)}</b><small>AED in ${M} months</small></div>
+      <div class="big"><span>Customers</span><b>${R.billed.length}</b><small>${R.repeat.length} came back more than once</small></div>
+      <div class="big"><span>Best month</span><b>${n0(R.mRev[R.bestI])}</b><small>${esc(mo[R.bestI].long)}</small></div>
+      <div class="big gaugebox">${T? `${gauge(R.ach[R.bestI])}<small>of target in the best month</small>` : `<span>Products sold</span><b>${R.sold.length}</b><small>different items</small>`}</div>
+    </div>
+    ${so(`${R.growingEvery?`<b>Sales went up every month.</b> `:""}${T? (R.ach.slice(0,C).some(a=>a>=1)? `The target was reached in ${mo.slice(0,C).filter((m,i)=>R.ach[i]>=1).map(m=>m.name).join(", ")}.` : `<b>No month has reached the target yet</b> — the best was ${pc0(R.ach[R.bestI])}.`):""}${R.partial?` ${last.long} has only ${R.daysEl} days so far (yellow bar), so it looks small.`:""} See the chart on page 2.`)}
+    <div class="rc"><div class="row"><h4>Report card</h4><span class="hint"><i class="dot g"></i>${nG} good · <i class="dot a"></i>${nA} OK · <i class="dot r"></i>${nR} need work</span></div><ul class="lights">${light}</ul></div>
+    <div class="rc"><h4>Top 3 things to do now</h4><ol class="pri">${top3.map((s,i)=>`<li><i style="background:${[COL.r,COL.a,COL.b][i]}">${i+1}</i><span><b>${esc(s.title)}.</b> ${esc(s.why)}${s.gain?` <b class="gain">+${n0(s.gain[0])}${Math.round(s.gain[0])!==Math.round(s.gain[1])?"–"+n0(s.gain[1]):""} AED/month</b>`:""}</span></li>`).join("")}</ol></div>
+    ${opt.notes? `<div class="note b"><b>Note from ${esc(opt.exec||"the sales executive")}:</b><span>${esc(opt.notes)}</span></div>`:""}
+    <div class="key"><span><i class="dot g"></i>Green = good</span><span><i class="dot a"></i>Amber = keep an eye on it</span><span><i class="dot r"></i>Red = act now</span><span><i class="dot y"></i>Yellow bar = month not finished</span></div>`);
+
+  /* ===== PAGE 2: sales vs target ===== */
+  const monthCards = mo.map((m,i)=>`<div class="tile ${isPart(i)?"ta":T&&R.ach[i]>=1?"tg":i===R.bestI?"tb":"tn"}"><span class="tk">${esc(m.long)}${isPart(i)?" (so far)":i===R.bestI?" ★ best":""}</span><span class="tv">${n0(R.mRev[i])}</span>${T&&!isPart(i)?`<div class="prog"><i style="width:${Math.min(100,R.ach[i]*100)}%;background:${R.ach[i]>=1?COL.g:R.ach[i]>=0.75?COL.a:COL.b}"></i></div><span class="tn">${pc0(R.ach[i])} of target</span>`:`<span class="tn">${isPart(i)?`${R.daysEl} of ${R.daysIn} days`:""}</span>`}</div>`).join("");
+  let thisMonth = "";
+  if (R.partial && T){ const exp = T*R.daysEl/R.daysIn;
+    thisMonth = `<div class="rc"><h4>${esc(last.long)} so far — are we on track?</h4>
+      <div class="prog big2"><i style="width:${Math.min(100,R.mRev[M-1]/T*100)}%;background:${R.mRev[M-1]>=exp?COL.g:COL.a}"></i><b class="mk" style="left:${Math.min(100,exp/T*100)}%"><span>should be here today: ${n0(exp)}</span></b></div>
+      <div class="row"><span class="hint">0</span><span class="hint">Target ${n0(T)} AED</span></div>
+      ${so(`Sold <b>${aed(R.mRev[M-1])}</b> in ${R.daysEl} days. ${R.mRev[M-1]>=exp?"<b>Ahead of pace.</b>":`<b>Behind pace</b> — to reach the target, sell about <b>${aed(R.needPerDay)} every day</b> for the remaining ${R.daysIn-R.daysEl} days.`} At the current speed the month ends near ${aed(R.pace)}.`, R.mRev[M-1]>=exp?"g":"a")}</div>`; }
+  const momTxt = R.mom.slice(1,C).map((g,k)=>`${mo[k].name}→${mo[k+1].name} ${pcs(g)}`).join(", ");
+  page(`${sec(1,"How much did we sell?", "Sales each month compared with the target. Each bar shows how much we sold; the arrow shows the change from the month before.")}
+    <div class="g4">${monthCards}</div>
+    <div class="rc"><h4>Sales vs. target</h4>${vbars}${so(`${momTxt?`Change month to month: ${momTxt}. `:""}${T?`An average full month is <b>${aed(R.cAvg)}</b> — that is ${pc0(R.cAvg/T)} of the target. We need about <b>${aed(Math.max(0,T-R.cAvg))} more per month</b>.`:""}`)}</div>
+    ${thisMonth}
+    <div class="g2">
+      <div class="rc"><h4>Regular supplies vs. one-time equipment</h4>${donut([{l:"Regular supplies",v:R.total-R.equipRev,c:COL.b,t:pc0(1-equipShare)},{l:"Equipment (one-time)",v:R.equipRev,c:COL.v,t:pc0(equipShare)}], pc0(1-equipShare), "regular")}
+        ${so(bigEquip? `${esc(trunc(bigEquip.sname,30))} (${aed(bigEquip.rev)}) was a one-time sale. Don't expect it every month.` : "All sales were regular supplies.")}</div>
+      <div class="rc"><h4>Customers buying each month</h4>${stackCols(mo.map((m,i)=>m.name+(isPart(i)?"*":"")), [{l:"Came back", v:mo.map((_,i)=>R.activeByMonth[i]-R.newByMonth[i]), c:COL.t},{l:"First time", v:R.newByMonth, c:"#86b6ef"}], 120)}
+        ${so(`${R.activeByMonth[C-1]} customers bought in ${mo[C-1].name}. More customers buying usually means more sales.${R.newByMonth[0]?` (Everyone in ${mo[0].name} shows as first time because the file starts there.)`:""}`)}</div>
+    </div>`);
+
+  /* ===== PAGE 3: who buys ===== */
+  const grp = [
+    {l:"Regular (bought 2+ months)", v:R.billed.filter(c=>c.nAct>=2 && c.lifecycle!=="Inactive").length, c:COL.g},
+    {l:"New (first order recently)", v:R.billed.filter(c=>c.nAct===1 && c.recent).length, c:"#86b6ef"},
+    {l:"Stopped buying", v:R.inactive.length, c:COL.r}];
+  const cTop = R.ranked.slice(0,10);
+  const restV = R.total - sum(R.ranked.slice(0,5).map(c=>c.total));
+  page(`${sec(2,"Who buys from us?", "Bar colour shows each customer's direction: green = buying more, amber = buying less, grey = too new or steady, red = stopped.")}
+    <div class="g2">
+      <div class="rc"><h4>Our ${R.billed.length} customers</h4>${donut(grp, R.billed.length, "customers")}${so(`<b>${pc0(rr)}</b> of customers came back more than once. ${R.inactive.length?`<b>${R.inactive.length} stopped buying</b> — see page 3.`:""}`, rr>=0.6?"g":"a")}</div>
+      <div class="rc"><h4>How much the top 5 customers bring</h4>${donut([...R.ranked.slice(0,5).map((c,i)=>({l:trunc(c.display,26), v:c.total, c:PAL[i], t:pc0(c.total/R.total)})), {l:`All other ${R.ranked.length-5} customers`, v:restV, c:"#cfd6de", t:pc0(restV/R.total)}], pc0(R.top5), "top 5")}${so(R.top5>0.5? `The top 5 bring <b>more than half</b> of all sales. If one of them stops, we feel it.` : `Sales are spread across many customers — good.`, R.top5>0.5?"a":"g")}</div>
+    </div>
+    <div class="rc"><h4>Top 10 customers by sales (AED)</h4>${hbars(cTop.map(c=>({l:c.display, v:c.total, c:trendCol(c), t:`${n0(c.total)} · ${pc0(c.total/R.total)}`})), cTop[0]?.total||1)}
+      <div class="legend2"><span><i style="background:${COL.g}"></i>Buying more</span><span><i style="background:${COL.a}"></i>Buying less</span><span><i style="background:${COL.n}"></i>Too new / steady</span><span><i style="background:${COL.r}"></i>Stopped</span></div>
+      ${so(`<b>${esc(cTop[0].display)}</b> is our biggest customer (${pc0(cTop[0].total/R.total)} of sales)${bigEquip && bigEquip.buyers.has(cTop[0].name)?`, but ${aed(bigEquip.rev)} of that was one ${esc(trunc(bigEquip.sname,40))}`:""}.`)}</div>
+    <div class="rc"><h4>Sales by type of customer (AED)</h4>${hbars(segRows(R), segRows(R)[0]?.v||1)}</div>`);
+
+  /* ===== PAGE 4: coming back / heatmap ===== */
+  const maxCell = Math.max(1,...R.billed.flatMap(c=>c.m));
+  const ramp = ["#eef4fd","#d6e6fb","#b3d0f6","#86b6ef","#5598e7","#2a78d6","#1c5cab"];
+  const cell = (v,i) => { if (v===0) return `<td class="hc z">·</td>`; if (v<0) return `<td class="hc" style="background:#fbe0dd;color:#a3271b">${n0(v)}</td>`; const k=Math.min(ramp.length-1, Math.floor(v/maxCell*(ramp.length-0.01))); return `<td class="hc" style="background:${ramp[k]};color:${k>=5?"#fff":"#14202b"}">${n0(v)}</td>`; };
+  const hmRows = [...R.billed].sort((a,b)=>b.total-a.total).map(c=>`<tr><td><i class="dot" style="background:${trendCol(c)}"></i>${esc(trunc(c.display,34))}</td>${c.m.map(cell).join("")}</tr>`).join("");
+  page(`${sec(3,"Are customers coming back?", "Each row is a customer, each column a month. Darker blue = bigger order. A dot (·) = no order that month.")}
+    <div class="rc"><div class="tw"><table class="t hm"><thead><tr><th>Customer</th>${mo.map((m,i)=>`<th class="c">${m.name}${isPart(i)?"*":""}</th>`).join("")}</tr></thead><tbody>${hmRows}</tbody></table></div>
+      ${R.partial?`<p class="hint">* ${last.long} is not finished yet.</p>`:""}</div>
+    ${R.inactive.length? `<div class="note r"><b>Stopped buying (${R.inactive.length})</b><span>${R.inactive.map(c=>`<b>${cn(c)}</b> — ${aed(c.total)}, last order ${mo[c.last].long}`).join("<br>")}<br>Together worth about <b>${aed(R.reactVal)} a month</b> when they were buying.</span></div>`:""}
+    ${R.declining.filter(c=>!c.cash).length? `<div class="note a"><b>Buying less (${R.declining.filter(c=>!c.cash).length})</b><span>${R.declining.filter(c=>!c.cash).map(c=>`<b>${cn(c)}</b> — ${c.m.slice(c.first).map(n0).join(" → ")} AED`).join("<br>")}</span></div>`:""}`);
+
+  /* ===== PAGE 5: customer health + tiers ===== */
+  const hl = [...R.billed].sort((a,b)=>b.health-a.health);
+  const hCol = c => c.healthTier==="Strong"?COL.g:c.healthTier==="Fair"?COL.a:COL.r;
+  const tierDefs = [["t1","1 · Keep happy","Big customers, still buying"],["t2","2 · Call this week","Stopped or buying a lot less"],["t3","3 · Get a second order","New, still proving out"],["t4","4 · Normal visits","Smaller or steady"]];
+  page(`${sec(4,"Customer health", "Each customer gets a score out of 100: recent orders, how often they buy, how much, which direction, and how many different items.")}
+    <div class="rc"><h4>Health score by customer</h4>${hbars(hl.map(c=>({l:c.display, v:c.health, c:hCol(c), t:`${c.health} · ${c.healthTier==="At risk"?"At risk":c.healthTier}`})), 100)}
+      <div class="legend2"><span><i style="background:${COL.g}"></i>Strong (80+)</span><span><i style="background:${COL.a}"></i>OK (55–79)</span><span><i style="background:${COL.r}"></i>At risk (below 55)</span></div>
+      ${so(`${R.billed.filter(c=>c.healthTier==="At risk").length} customers are at risk: ${esc(listJoin(R.billed.filter(c=>c.healthTier==="At risk").slice(0,5).map(c=>c.display)))||"none"}.`, R.billed.some(c=>c.healthTier==="At risk")?"r":"g")}</div>
+    <div class="g2">${tierDefs.map((d,i)=>`<div class="tier ${d[0]}"><div class="th"><span class="tl">${d[1]}</span><span class="tt2">${d[2]}</span><b class="cnt">${R.tiers[i].length}</b></div><p>${R.tiers[i].length? R.tiers[i].map(c=>`<b>${cn(c)}</b>`).join(" · ") : "Nobody here."}</p></div>`).join("")}</div>`);
+
+  /* ===== PAGE 6: products ===== */
+  const pTop = R.topRev.slice(0,10);
+  const catItems = R.cats.slice(0,7).map((c,i)=>({l:c.name, v:c.v, c:PAL[i], t:pc0(c.v/R.total)}));
+  const catRest = R.total - sum(catItems.map(c=>c.v)); if (catRest>0.5) catItems.push({l:"Other", v:catRest, c:"#cfd6de", t:pc0(catRest/R.total)});
+  page(`${sec(5,"What sells best?", "Which items bring the most money and which kinds of product we sell.")}
+    <div class="rc"><h4>Top 10 items by sales (AED)</h4>${hbars(pTop.map(p=>({l:p.sname, v:p.rev, c:p.equip?COL.v:COL.g, t:`${n0(p.rev)}${p.equip?" · one-time":""}`})), pTop[0]?.rev||1)}
+      ${so(`The top 10 items bring <b>${pc0(sum(pTop.map(p=>p.rev))/R.total)}</b> of sales.${R.consistent[0]?` <b>${esc(trunc(R.consistent.slice().sort((a,b)=>b.rev-a.rev)[0].sname,34))}</b> sells almost every month — always keep it in stock.`:""}`)}</div>
+    <div class="g2">
+      <div class="rc"><h4>Sales by product type</h4>${donut(catItems, R.cats.length, "types")}</div>
+      <div class="rc"><h4>Sales by brand (AED)</h4>${hbars(R.brands.slice(0,8).map(b=>({l:b.name, v:b.v, c:b.name==="Not specified"?"#b8c2cc":COL.b, t:pc0(b.v/R.total)})), R.brands[0]?.v||1)}${R.unbranded.length?`<p class="hint">“Not specified” = no brand in the item name.</p>`:""}</div>
+    </div>
+    <div class="g2">
+      <div class="rc"><h4>Items selling more ▲</h4>${R.prodInc.length? R.prodInc.map(p=>`<div class="pr">${spark(p.m,R.partial)}<span><b>${esc(trunc(p.sname,32))}</b><small>${p.m.map(n0).join(" → ")}</small></span></div>`).join("") : `<p class="prose">No item is clearly rising yet.</p>`}</div>
+      <div class="rc"><h4>Items selling less ▼</h4>${R.prodDec.length? R.prodDec.map(p=>`<div class="pr">${spark(p.m,R.partial)}<span><b>${esc(trunc(p.sname,32))}</b><small>${p.m.map(n0).join(" → ")}</small></span></div>`).join("") : `<p class="prose">No item is clearly falling.</p>`}</div>
+    </div>
+    <div class="g3">
+      <div class="tile tg"><span class="tk">Sold almost every month</span><span class="tv">${R.consistent.length}</span><span class="tn">items — our core range</span></div>
+      <div class="tile ta"><span class="tk">Sold only once</span><span class="tv">${R.oneOcc.length}</span><span class="tn">of ${R.sold.length} items (${pc0(R.oneOcc.length/R.sold.length)})</span></div>
+      <div class="tile tb"><span class="tk">Different items sold</span><span class="tv">${R.sold.length}</span><span class="tn">in ${M} months</span></div>
+    </div>`);
+
+  /* ===== PAGE 7: prices & returns ===== */
+  const pf = R.priceFlags.slice(0,8);
+  const pfRows = pf.map(p=>{ const mx=p.maxP*1.08; return `<div class="rg"><span class="l">${esc(trunc(p.sname,30))}</span><span class="rtrack"><i style="left:${p.minP/mx*100}%;width:${(p.maxP-p.minP)/mx*100}%"></i><b style="left:${p.minP/mx*100}%"></b><b style="left:${p.maxP/mx*100}%"></b></span><span class="v">${n2(p.minP)} → ${n2(p.maxP)}</span></div>`; }).join("");
+  const retC = [...R.negs.reduce((m,n)=>m.set(n.c,(m.get(n.c)||0)-n.a),new Map()).entries()].sort((a,b)=>b[1]-a[1]).slice(0,6);
+  page(`${sec(6,"Prices and returns", "Is everyone paying the same price? And how much comes back?")}
+    <div class="rc"><h4>Same item, different price (AED per unit, lowest → highest)</h4>${pfRows? pfRows : `<p class="prose">Every item was sold at the same price to everyone.</p>`}
+      ${pf.length? so(`<b>${R.priceFlags.length} items</b> were sold at different prices to different customers. Example: ${esc(trunc(pf[0].sname,30))} sold for ${n2(pf[0].minP)} to one customer and ${n2(pf[0].maxP)} to another. Agree one price list.`, "a"):""}</div>
+    <div class="g2">
+      <div class="rc"><h4>Returns by customer (AED)</h4>${retC.length? hbars(retC.map(([c,v])=>({l:R.custMap.get(c)?.display||c, v, c:COL.r})), retC[0][1]) : `<p class="prose">No returns.</p>`}</div>
+      <div class="rc"><h4>Sold vs. returned</h4>${donut([{l:"Kept by customers", v:R.gross-R.returns, c:COL.g, t:aed(R.gross-R.returns)},{l:"Returned", v:R.returns, c:COL.r, t:aed(R.returns)}], pc(R.returns/(R.gross||1)), "returned")}${so(R.returns/R.gross>0.02? "Returns are a bit high. Check items and quantities before delivery." : "Returns are low — good.", R.returns/R.gross>0.02?"a":"g")}</div>
+    </div>`);
+
+  /* ===== PAGE 8: how to improve sales ===== */
+  const act = SG.filter(s=>s.pri!=="keep"), keep = SG.filter(s=>s.pri==="keep");
+  const withGain = act.filter(s=>s.gain);
+  const gMax = Math.max(1,...withGain.map(s=>s.gain[1]));
+  const card = (s,i) => `<div class="sug ${s.pri}"><div class="sh"><span class="num">${i+1}</span><div><span class="when">${s.pri==="now"?"Do now":"This month"}</span><h5>${esc(s.title)}</h5></div>${s.gain?`<span class="gain">+${n0(s.gain[0])}${Math.round(s.gain[0])!==Math.round(s.gain[1])?"–"+n0(s.gain[1]):""}<small>AED / month</small></span>`:""}</div><p><b>Why:</b> ${esc(s.why)}</p>${s.steps.length?`<ul>${s.steps.map(x=>`<li>${x}</li>`).join("")}</ul>`:""}</div>`;
+  const first = act.slice(0,4), rest = act.slice(4,8);
+  page(`${sec(7,"How to improve sales", "These ideas come from this file's numbers. A different file gives different ideas. Money amounts are rough estimates per month.")}
+    ${withGain.length? `<div class="rc"><h4>Where the extra sales could come from (estimate, AED per month)</h4>${hbars(withGain.map(s=>({l:s.title, v:s.gain[1], c:s.pri==="now"?COL.r:COL.a, t:`up to ${n0(s.gain[1])}`})), gMax)}${so(`Doing all of these could add roughly <b>${n0(sum(withGain.map(s=>s.gain[0])))}–${n0(sum(withGain.map(s=>s.gain[1])))} AED a month</b>${T?` — the gap to target is about ${n0(Math.max(0,T-R.cAvg))} AED`:""}.`, "g")}</div>`:""}
+    <div class="sugs">${first.map(card).join("")}</div>`);
+  if (rest.length || keep.length) page(`${sec(7,"How to improve sales (continued)")}
+    <div class="sugs">${rest.map((s,i)=>card(s,i+4)).join("")}</div>
+    ${keep.length? `<div class="rc keep"><h4>Keep doing — this is working</h4><ul class="ck">${keep.map(s=>`<li><span><b>${esc(s.title)}.</b> ${esc(s.why)}</span></li>`).join("")}</ul></div>`:""}`);
+
+  /* ===== PAGE 9: 30-day plan ===== */
+  const rd = opt.reportDate; const weeks=[];
+  const focus = ["Call customers who stopped buying (group 2) and visit big customers (group 1)","Offer more items to customers who buy only 1–2 things","Visit new clinics and pharmacies","Close the month and get second orders from new customers (group 3)"];
+  for (let w=0; w<4; w++){
+    const s = new Date(rd.getFullYear(), rd.getMonth(), rd.getDate()+7*w), e = new Date(rd.getFullYear(), rd.getMonth(), rd.getDate()+7*w+6);
+    let tg=0; for (let d=new Date(s); d<=e; d.setDate(d.getDate()+1)){ const dim=new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); const inLast = R.partial && last.date && d.getFullYear()===last.date.getFullYear() && d.getMonth()===last.date.getMonth(); tg += inLast && R.needPerDay!=null ? R.needPerDay : T/dim; }
+    weeks.push({s,e,tg});
+  }
+  const wMax = Math.max(1,...weeks.map(w=>w.tg));
+  const offerRows = R.accounts.filter(c=>c.recs?.length && c.tier<=3).sort((a,b)=>a.tier-b.tier || b.total-a.total).slice(0,10);
+  const end30 = new Date(rd.getFullYear(),rd.getMonth(),rd.getDate()+29);
+  page(`${sec(8,`30-day plan — ${dShort(rd)} to ${dShort(end30)} ${end30.getFullYear()}`)}
+    ${T? `<div class="rc"><h4>Weekly sales goal</h4><div class="weeks">${weeks.map((w,i)=>`<div class="wk"><span class="wn">Week ${i+1}</span><span class="wd">${dShort(w.s)} – ${dShort(w.e)}</span><div class="wbar"><i style="height:${w.tg/wMax*100}%"></i></div><b>${n0(w.tg)}</b><small>${esc(focus[i])}</small></div>`).join("")}</div>${so(R.partial&&R.needPerDay!=null?`Weeks in ${last.long} are higher because we are behind on this month's target.`:"Each week's goal is a share of the monthly target.","b")}</div>`:""}
+    <div class="rc"><h4>Who to see and what to offer</h4><div class="tw"><table class="t"><thead><tr><th>Customer</th><th>Group</th><th>What to do</th></tr></thead><tbody>${[...R.tiers[1],...R.tiers[0],...R.tiers[2]].filter(c=>!c.cash).slice(0,12).map(c=>`<tr><td><i class="dot" style="background:${[COL.g,COL.r,COL.b][c.tier-1]}"></i>${cn(c)}</td><td>${["Keep happy","Call this week","Get 2nd order"][c.tier-1]}</td><td>${nextStep(R,c)}</td></tr>`).join("")}</tbody></table></div></div>
+    <div class="rc"><h4>Every day</h4><ul class="ck"><li><span>Make 2–3 visits or calls, starting with group 2, then group 1.</span></li><li><span>Follow up on any price quote the same day.</span></li><li><span>Take the core items with you: ${esc(R.consistent.slice(0,4).map(p=>trunc(p.sname,30)).join(", ")||"best sellers")}.</span></li></ul></div>`);
+
+  /* ===== PAGE 10: summary for management ===== */
+  const good = SC.filter(s=>s.r===GOOD), bad = SC.filter(s=>s.r===BAD||s.r===OK);
+  const support = [];
+  if (T && R.ach.slice(0,C).every(a=>a<1)) support.push(`Talk about the target: is ${aed(T)} a month right now, or should it rise step by step? (best month ${pc0(R.ach[R.bestI])}, average ${pc0(R.cAvg/T)})`);
+  if (R.priceFlags.length) support.push(`A fixed customer price list for the ${R.priceFlags.length} items sold at different prices.`);
+  if (R.inactive.length) support.push(`Help to win back ${listJoin(R.inactive.slice(0,3).map(c=>c.display))} (e.g. a special offer).`);
+  if (R.unbranded.length) support.push(`Add the brand to every item in the export (${R.unbranded.length} items have none).`);
+  page(`${sec(9,"Summary for management")}
+    <div class="rc"><h4>What was achieved</h4><p class="prose">${C>=2?`Sales went from <b>${aed(R.mRev[0])}</b> in ${mo[0].long} to <b>${aed(R.mRev[C-1])}</b> in ${mo[C-1].long}${R.growingEvery?", growing every month":""}. `:""}${R.billed.length} customers bought ${R.sold.length} different items, ${aed(R.total)} in total.${T?` The best month reached ${pc0(R.ach[R.bestI])} of the ${aed(T)} target.`:""}</p></div>
+    <div class="g2">
+      <div class="rc pros"><h4>Strengths (pros)</h4><ul class="ck">${good.map(s=>`<li><span><b>${esc(s.k)}:</b> ${esc(s.why)}</span></li>`).join("")||"<li><span>Nothing rated good yet.</span></li>"}</ul></div>
+      <div class="rc cons"><h4>Weaknesses (cons)</h4><ul class="ck x">${bad.map(s=>`<li><span><b>${esc(s.k)}:</b> ${esc(s.why)}</span></li>`).join("")||"<li><span>No weak areas.</span></li>"}</ul></div>
+    </div>
+    <div class="rc"><h4>Focus for next month</h4><ol class="pri">${act.slice(0,5).map((s,i)=>`<li><i style="background:${s.pri==="now"?COL.r:COL.a}">${i+1}</i><span><b>${esc(s.title)}</b>${s.gain?` — about +${n0(s.gain[1])} AED/month`:""}</span></li>`).join("")}</ol></div>
+    ${support.length?`<div class="rc"><h4>Help needed from management</h4><ul class="ck i">${support.map(s=>`<li><span>${esc(s)}</span></li>`).join("")}</ul></div>`:""}
+    ${opt.notes? `<div class="note b"><b>Note from ${esc(opt.exec||"the sales executive")}:</b><span>${esc(opt.notes)}</span></div>`:""}
+    <p class="hint">Data check: ${P.hasTotal ? (R.mism.length ? `${R.mism.length} lines do not match the file's Total column.` : `all ${P.lines.length} lines match the file's Total column (${aed2(R.fileTotal)}).`) : "no Total column to check."} Estimates are marked as estimates; nothing else is guessed.</p>`);
+
+  /* ===== Appendix ===== */
+  const apHead = `<thead><tr><th>Customer / item</th>${mo.map((m,i)=>`<th class="n">${m.name}${isPart(i)?"*":""}</th>`).join("")}<th class="n">Total</th></tr></thead>`;
+  const rows=[]; for (const c of [...R.billed].sort((a,b)=>b.total-a.total)){ rows.push(`<tr class="grp"><td>${cn(c)}</td>${c.m.map(v=>`<td class="n">${v?n0(v):"–"}</td>`).join("")}<td class="n">${n0(c.total)}</td></tr>`); for (const l of R.lines.filter(l=>l.customer===c.name && l.months.some(x=>x.a||x.q))) rows.push(`<tr><td style="padding-left:16px">${esc(trunc(l.sname,46))}</td>${l.months.map(x=>`<td class="n ${x.a<0?"neg":""}">${x.a?n2(x.a):"–"}</td>`).join("")}<td class="n">${n2(sum(l.months.map(x=>x.a)))}</td></tr>`); }
+  const PER=36; const nAp = Math.ceil(rows.length/PER);
+  for (let i=0;i<rows.length;i+=PER) page(`${sec("A",`Appendix — every customer and item by month (AED)${nAp>1?` · ${i/PER+1} of ${nAp}`:""}`)}<div class="tw"><table class="t">${apHead}<tbody>${rows.slice(i,i+PER).join("")}</tbody></table></div>`);
+
+  $("#report").innerHTML = pages.map((b,i)=>`<section class="page">${b}${footer(i+1,pages.length)}</section>`).join("");
+  $("#bar").hidden = false;
+  $("#srcPill").innerHTML = STATE.example ? `<span class="pill ex">Example data</span>` : `<span class="pill ok">Your file</span>`;
+  $("#srcName").textContent = P.fileName;
+  $("#checkPill").innerHTML = !P.hasTotal ? `<span class="pill warn">No Total column to check</span>` : R.mism.length ? `<span class="pill bad">${R.mism.length} lines don't match Total</span>` : `<span class="pill ok">Totals reconcile · ${aed2(R.fileTotal)}</span>`;
+}
+function segRows(R){ const m=new Map(); for (const c of R.billed){ m.set(c.segment,(m.get(c.segment)||0)+c.total); } return [...m.entries()].sort((a,b)=>b[1]-a[1]).map(([l,v],i)=>({l, v, c:PAL[i%PAL.length], t:`${n0(v)} · ${pc0(v/R.total)}`})); }
+
+/* ===================== example data (fictional) ===================== */
+function exampleWorkbook(){
+  const hdr = ["Particular","August 2026",null,"September 2026",null,"October 2026",null,"November 2026",null,"Total",null];
+  const sub = [null,"Amount","Quantity","Amount","Quantity","Amount","Quantity","Amount","Quantity","Amount","Quantity"];
+  const data = [
+    ["Example Medical Center A",[["[EX-101] Disposable Syringe 5ml - Euromed (100 Pcs/Box)",[640,40,960,60,1280,80,320,20]],["[EX-205] Latex Gloves (Powder Free) Medium - Euromed",[1200,80,0,0,1800,120,600,40]],["[EX-310] IV Cannula 22 G - Oximed",[800,800,1000,1000,1200,1200,0,0]],["[EX-330] IV Set Luer Lock 21G (Euromed)",[600,1000,750,1250,900,1500,0,0]]]],
+    ["Example Day Surgery Hospital",[["[EX-420] Reinforced Surgical Gown (Large) - Euromed",[2080,400,0,0,3120,600,0,0]],["[EX-430] SMS Wrapping Sheet 100x100 cm - Euromed",[0,0,1160,4,2320,8,0,0]],["[EX-440] Medical Refrigerator 298L",[0,0,0,0,5200,1,0,0]]]],
+    ["Example Dental Clinic",[["[EX-510] Dental Bibs - Blue (500 Pcs/Ctn) - Oximed",[280,8,280,8,0,0,0,0]],["[EX-520] Universal Bond 5ml - Imicryl",[344,4,688,8,0,0,0,0]]]],
+    ["Example Polyclinic",[["[EX-610] Couch Roll (12roll/Ctn) - Euromed",[0,0,1600,20,1920,24,640,8]],["[EX-101] Disposable Syringe 5ml - Euromed (100 Pcs/Box)",[0,0,512,32,704,44,0,0]],["[EX-620] Gauze Swab 7.5x7.5cm 8ply - Euromed",[0,0,720,120,-240,-40,0,0]],["[EX-330] IV Set Luer Lock 21G (Euromed)",[0,0,300,500,450,750,150,250]]]],
+    ["Example Fertility Hospital",[["[EX-710] Sharp Container 5 Ltr - Euromed",[0,0,1500,200,1500,200,0,0]]]],
+    ["Example Fertility Centre Two",[["[EX-720] Biological Indicator - Euromed",[0,0,0,0,1400,200,0,0]]]],
+    ["Example Medical Store",[["[EX-310] IV Cannula 22 G - Oximed",[2000,2000,0,0,0,0,0,0]],["[EX-810] Bed Sheet Non-Woven 140x240cm - Euromed",[0,0,0,0,6400,4000,0,0]]]],
+    ["Example Clinic B",[["[EX-205] Latex Gloves (Powder Free) Medium - Euromed",[900,60,0,0,0,0,0,0]],["[EX-101] Disposable Syringe 5ml - Euromed (100 Pcs/Box)",[480,30,0,0,0,0,0,0]]]],
+    ["Cash Sales (Example Rep)",[["[EX-910] Forehead Thermometer - Beon",[0,0,300,4,600,8,300,4]],["[EX-205] Latex Gloves (Powder Free) Medium - Euromed",[0,0,0,0,280,20,560,40]]]],
+  ];
+  const aoa=[hdr,sub];
+  for (const [c,items] of data){ aoa.push([c,null,null,null,null,null,null,null,null,null,null]); for (const [n,v] of items){ aoa.push(["          "+n,...v,v[0]+v[2]+v[4]+v[6],v[1]+v[3]+v[5]+v[7]]); } }
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "Sheet1"); return wb;
+}
+
+/* ===================== controls ===================== */
+const FIELDS = ["company","territory","exec","target","hv","prepfor","rtitle","notes","exReason"];
+const SAVE = ["company","territory","target","hv","prepfor","rtitle","exReason"];
+function loadPrefs(){ try{ const s = JSON.parse(localStorage.getItem("srb-prefs")||"{}"); for (const k of SAVE) if (s[k]!=null) $("#"+k).value = s[k]; }catch(e){} }
+function savePrefs(){ try{ const o={}; for (const k of SAVE) o[k]=$("#"+k).value; localStorage.setItem("srb-prefs", JSON.stringify(o)); }catch(e){} }
+function readOpts(){
+  const rd = $("#rdate").value ? new Date($("#rdate").value+"T12:00:00") : new Date();
+  const exclude = [...document.querySelectorAll("#exList input:checked")].map(i=>i.value);
+  return { company:$("#company").value.trim(), territory:$("#territory").value.trim(), exec:$("#exec").value.trim(), target:toNum($("#target").value), hv:toNum($("#hv").value),
+    prepfor:$("#prepfor").value.trim(), title:$("#rtitle").value.trim()||"Management Sales Performance Report", notes:$("#notes").value.trim(), exReason:$("#exReason").value.trim(),
+    reportDate: rd, partial: $("#partial").checked, exclude };
+}
+function status(html, kind){ $("#status").innerHTML = html ? `<div class="msg ${kind||"ok"}">${html}</div>` : ""; }
+function autoPartial(P){ const last = P.months[P.months.length-1].date; const rd = readOpts().reportDate; if (last) $("#partial").checked = rd < new Date(last.getFullYear(), last.getMonth()+1, 1); }
+function buildExclList(P){
+  $("#exList").innerHTML = P.customers.map((c,i)=>`<label><input type="checkbox" id="ex${i}" value="${esc(c.name)}"> <span>${esc(c.display)}</span></label>`).join("");
+  $("#exclCard").hidden = false;
+}
+function rerender(){ if (!STATE) return; STATE.opt = readOpts(); try{ render(); }catch(e){ console.error(e); status(`Could not build the report: ${esc(e.message)}`,"bad"); } }
+function load(wb, fileName, example){
+  try{
+    const P = parseWorkbook(wb, fileName);
+    if (!$("#exec").dataset.user) $("#exec").value = P.exec || "";
+    autoPartial(P); buildExclList(P);
+    STATE = {P, example, opt: readOpts()};
+    render();
+    status(example ? `Showing a fictional example. Upload your Excel to build your own report.` : `Report built from <b>${esc(fileName)}</b>: ${P.lines.length} product lines, ${P.customers.length} customers, ${P.months.length} months.`, example? "warn":"ok");
+  }catch(e){ console.error(e); status(`Could not read this file. ${esc(e.message)}`, "bad"); }
+}
+function handleFile(f){
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { let wb; try { wb = XLSX.read(new Uint8Array(rd.result), {type:"array", cellDates:true}); } catch(e){ status(`Could not open ${esc(f.name)} as an Excel file.`, "bad"); return; } load(wb, f.name.replace(/^[0-9a-f]{6,}[-_]/i,""), false); };
+  rd.readAsArrayBuffer(f);
+}
+$("#file").addEventListener("change", e=>{ handleFile(e.target.files[0]); e.target.value=""; });
+const drop=$("#drop");
+["dragenter","dragover"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault(); drop.classList.add("over");}));
+["dragleave","drop"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault(); drop.classList.remove("over");}));
+drop.addEventListener("drop", e=>handleFile(e.dataTransfer.files[0]));
+$("#loadExample").addEventListener("click", ()=>{ $("#exec").dataset.user=""; load(exampleWorkbook(),"Example file (fictional)",true); });
+$("#exec").addEventListener("input", e=>{ e.target.dataset.user="1"; });
+[...FIELDS,"rdate","partial"].forEach(id=>$("#"+id).addEventListener("change", ()=>{ savePrefs(); rerender(); }));
+$("#exList").addEventListener("change", rerender);
+{ const t=new Date(); $("#rdate").value = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; }
+loadPrefs();
+
+/* ===================== exports ===================== */
+function loadScript(src){ return new Promise((res,rej)=>{ if (document.querySelector(`script[src="${src}"]`)) return res(); const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("Could not load a library needed for the download. Check the connection and try again.")); document.head.appendChild(s); }); }
+let DL; async function downloads(){ if (DL!==undefined) return DL; try{ DL = window.claude?.use ? await window.claude.use("downloads") : null; }catch(e){ DL=null; } return DL; }
+function baseName(){ const o=STATE.opt, mo=STATE.R.months; return `${(o.title||"Sales Report").replace(/[^\w\- ]+/g,"")} - ${(o.exec||"Sales").replace(/[^\w\- ]+/g,"")} - ${mo[0].name}-${mo[mo.length-1].name} ${mo[mo.length-1].year}`; }
+async function save(filename, data){
+  const d = await downloads();
+  if (!d){ status("Downloads are not available in this view. Open the link in a browser signed in to claude.ai.", "warn"); return; }
+  try{ await d.save({filename, data}); status(`Saved ${esc(filename)}.`, "ok"); }
+  catch(e){ if (e && e.code==="declined") status("Download cancelled.","warn"); else status(`Download failed (${esc(e?.code||e?.message||"error")}).`,"bad"); }
+}
+async function withBusy(btn, fn){ const t=btn.textContent; btn.disabled=true; btn.textContent="Preparing…"; try{ await fn(); } catch(e){ console.error(e); status(esc(e.message||String(e)),"bad"); } finally{ btn.disabled=false; btn.textContent=t; } }
+$("#dlPdf").addEventListener("click", e=>withBusy(e.currentTarget, async()=>{
+  await loadScript("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js");
+  await loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
+  await document.fonts.ready;
+  document.body.classList.add("exporting");
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  const {jsPDF} = window.jspdf; const pdf = new jsPDF({unit:"pt", format:"a4"}); const PW=595.28, PH=841.89;
+  try{
+    const pages=[...document.querySelectorAll("#report .page")];
+    for (let i=0;i<pages.length;i++){
+      const cv = await html2canvas(pages[i],{scale:2, backgroundColor:"#ffffff", logging:false});
+      let w=PW, h=PW*cv.height/cv.width; if (h>PH){ h=PH; w=PH*cv.width/cv.height; }
+      if (i) pdf.addPage();
+      pdf.addImage(cv.toDataURL("image/jpeg",0.9),"JPEG",(PW-w)/2,0,w,h);
+    }
+  } finally { document.body.classList.remove("exporting"); }
+  await save(baseName()+".pdf", pdf.output("blob"));
+}));
+$("#dlXlsx").addEventListener("click", e=>withBusy(e.currentTarget, async()=>{
+  const R=STATE.R, mo=R.months, M=R.M;
+  const wb = XLSX.utils.book_new();
+  const add=(name,rows)=>{ const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{Note:"No rows"}]); ws["!cols"]=Object.keys(rows[0]||{Note:1}).map(k=>({wch:Math.min(46,Math.max(10,k.length+2))})); XLSX.utils.book_append_sheet(wb, ws, name); };
+  add("Summary", [{Measure:"Total revenue (AED)", Value:r2(R.total)},{Measure:"Gross sales (AED)", Value:r2(R.gross)},{Measure:"Returns (AED)", Value:r2(R.returns)},{Measure:"Customers billed", Value:R.billed.length},{Measure:"Repeat customers", Value:R.repeat.length},{Measure:"Products sold", Value:R.sold.length},{Measure:"Top 5 share %", Value:+(R.top5*100).toFixed(1)},{Measure:"Monthly target (AED)", Value:R.T||"Not set"},
+    ...mo.map((m,i)=>({Measure:`${m.long}${R.partial&&i===M-1?" (MTD)":""} revenue`, Value:r2(R.mRev[i])})), ...(R.T? mo.map((m,i)=>({Measure:`${m.long} achievement %`, Value:+(R.ach[i]*100).toFixed(1)})):[]),
+    ...scorecard(R).map(s=>({Measure:"Scorecard: "+s.k, Value:`${s.r} — ${s.v}`}))]);
+  add("Customers", [...R.billed].sort((a,b)=>b.total-a.total).map(c=>{ const o={Customer:c.display, Segment:c.segment, Tier:c.tier, "Tier reason":c.tierWhy, Health:c.health, "Health tier":c.healthTier, Lifecycle:c.lifecycle, Trend:c.trend||"", "Trend %":c.pct!=null? +(c.pct*100).toFixed(1):""}; mo.forEach((m,i)=>o[m.name+" AED"]=r2(c.m[i])); Object.assign(o,{"Total AED":r2(c.total), "Active months":c.nAct, Products:c.nProd, "Next step":nextStep(R,c).replace(/<[^>]+>/g,"").replace(/&amp;/g,"&").replace(/&#39;/g,"'"), "Cross-sell":(c.recs||[]).map(p=>p.sname).join("; ")}); return o; }));
+  add("Products", [...R.prods].sort((a,b)=>b.rev-a.rev).map(p=>{ const o={"Item Code":p.code, Product:p.name, Brand:p.brand, Category:p.category, Equipment:p.equip?"Yes":"No"}; mo.forEach((m,i)=>o[m.name+" AED"]=r2(p.m[i])); Object.assign(o,{"Revenue AED":r2(p.rev), Quantity:p.qty, "Months active":p.nAct, Customers:p.nBuyers, Pattern:p.pattern, "Avg price AED":p.asp!=null? r2(p.asp):"", "Lowest price":p.minP!=null? r2(p.minP):"", "Highest price":p.maxP!=null? r2(p.maxP):"", "Price spread %":p.spread!=null? +(p.spread*100).toFixed(1):""}); return o; }));
+  add("Retention", R.retention.map(r=>({Transition:`${r.from} → ${r.to}${r.partial?" (MTD)":""}`, "Active prior month":r.prior, Retained:r.kept, "Retention %":r.rate!=null? +(r.rate*100).toFixed(1):"", "New logos":r.newL, Churned:r.churn})));
+  add("Clean data", R.lines.flatMap(l=>l.months.map((x,i)=>({x,i})).filter(o=>o.x.a||o.x.q).map(({x,i})=>({Customer:R.custMap.get(l.customer)?.display||l.customer, Segment:segmentOf(l.customer), "Item Code":l.code, Product:l.pname, Brand:l.brand, Category:l.category, Month:mo[i].long+(R.partial&&i===M-1?" (MTD)":""), Amount:x.a, Quantity:x.q}))));
+  add("Returns", R.negs.map(n=>({Customer:R.custMap.get(n.c)?.display||n.c, "Item Code":n.code, Product:n.name, Month:n.month, Quantity:n.q, Amount:n.a})));
+  add("Suggestions", suggestions(R).map(x=>({When:x.pri==="now"?"Do now":x.pri==="month"?"This month":"Keep doing", Suggestion:x.title, Why:x.why, Steps:x.steps.join(" ").replace(/<[^>]+>/g,"").replace(/&amp;/g,"&"), "Est. AED / month (low)":x.gain?Math.round(x.gain[0]):"", "Est. AED / month (high)":x.gain?Math.round(x.gain[1]):""})));
+  const out = XLSX.write(wb,{bookType:"xlsx", type:"array"});
+  await save(baseName()+" - data.xlsx", new Blob([out]));
+}));
+
+/* start with the fictional example so the page shows what it does */
+load(exampleWorkbook(),"Example file (fictional)",true);
+</script>
+
+</body></html>
